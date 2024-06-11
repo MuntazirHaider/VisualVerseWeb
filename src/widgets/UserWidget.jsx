@@ -21,16 +21,21 @@ import WidgetWrapper from "components/WidgetWrapper";
 import { useSelector } from "react-redux";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+// routes
+import Apis from "routes/apis";
+import RestApiClient from "routes/RestApiClient";
 // widgets
-import UpdateProfilePage from "pages/widgets/UpdateProfileWidget";
+import UpdateProfilePage from "widgets/UpdateProfileWidget";
 
 const UserWidget = (props) => {
-    const { userId, picturePath } = props;
+    const { userId } = props;
     const [user, setUser] = useState(null);
     const navigate = useNavigate();
     const token = useSelector((state) => state.token);
     const currUser = useSelector((state) => state.user);
     const posts = useSelector((state) => state.posts);
+
+    const api = new RestApiClient(token);
 
     const { palette } = useTheme();
     const dark = palette.neutral.dark;
@@ -51,15 +56,10 @@ const UserWidget = (props) => {
 
     // Get user by id
     const getUser = async () => {
-        const response = await fetch(`http://localhost:3001/users/${userId}`, {
-            method: "GET",
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
-            }
-        });
-        const data = await response.json();
-        setUser(data);
+        const response = await api.get(`${Apis.user.index}/${userId}`);
+        if (response.result) {
+            setUser(response.data);
+        }
     }
 
     useEffect(() => {
@@ -73,6 +73,7 @@ const UserWidget = (props) => {
         firstName,
         middleName,
         lastName,
+        picturePath,
         occupation,
         location,
         totalPosts,
@@ -106,7 +107,7 @@ const UserWidget = (props) => {
                         <Typography color={medium}>{(friends.length) || 0} friends</Typography>
                     </Box>
                 </FlexBetween>
-                {isLoggedInUser && <IconButton> <ManageAccountsOutlined onClick={handleClickOpen} sx={{ cursor: "pointer" }} /></IconButton>}
+                {isLoggedInUser && <IconButton onClick={handleClickOpen}> <ManageAccountsOutlined sx={{ cursor: "pointer" }} /></IconButton>}
             </FlexBetween>
 
 
@@ -114,21 +115,21 @@ const UserWidget = (props) => {
             {
                 (location || occupation) && (
                     <>
-                    <Divider />
-                    <Box p="1rem 0">
-                        {location && (
-                            <Box display="flex" alignItems="center" gap="1rem" mb="0.5rem">
-                                <LocationOnOutlined fontSize="large" sx={{ color: main }} />
-                                <Typography color={medium}>{location}</Typography>
-                            </Box>
-                        )}
-                        {occupation && (
-                            <Box display="flex" alignItems="center" gap="1rem" mb="0.5rem">
-                                <WorkOutlineOutlined fontSize="large" sx={{ color: main }} />
-                                <Typography color={medium}>{occupation}</Typography>
-                            </Box>
-                        )}
-                    </Box>
+                        <Divider />
+                        <Box p="1rem 0">
+                            {location && (
+                                <Box display="flex" alignItems="center" gap="1rem" mb="0.5rem">
+                                    <LocationOnOutlined fontSize="large" sx={{ color: main }} />
+                                    <Typography color={medium}>{location}</Typography>
+                                </Box>
+                            )}
+                            {occupation && (
+                                <Box display="flex" alignItems="center" gap="1rem" mb="0.5rem">
+                                    <WorkOutlineOutlined fontSize="large" sx={{ color: main }} />
+                                    <Typography color={medium}>{occupation}</Typography>
+                                </Box>
+                            )}
+                        </Box>
                     </>
                 )
             }

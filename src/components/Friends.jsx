@@ -8,15 +8,20 @@ import {
     Delete
 } from "@mui/icons-material";
 // @mui
-import { Box, IconButton, Typography, useTheme, Menu, MenuItem,  ListItemIcon} from "@mui/material";
+import { Box, IconButton, Typography, useTheme, Menu, MenuItem, ListItemIcon } from "@mui/material";
 // state
 import { useDispatch, useSelector } from "react-redux";
 import { setFriends } from "state";
+// routes
+import RestApiClient from "routes/RestApiClient";
+import Apis from "routes/apis";
 // components
 import FlexBetween from "./FlexBetween";
 import UserImage from "./UserImage";
 // react
 import { useNavigate } from "react-router-dom";
+// utils
+import { toast } from "react-toastify";
 
 const Friends = ({ postId, friendId, name, subtitle, userPicturePath, getPosts }) => {
     const dispatch = useDispatch();
@@ -28,6 +33,7 @@ const Friends = ({ postId, friendId, name, subtitle, userPicturePath, getPosts }
     const [anchorEl, setAnchorEl] = useState(null);
     const open = Boolean(anchorEl);
 
+    const api = new RestApiClient(token);
 
     const { palette } = useTheme();
     const primaryLight = palette.primary.light;
@@ -47,29 +53,19 @@ const Friends = ({ postId, friendId, name, subtitle, userPicturePath, getPosts }
 
     // add or remove friend
     const patchFriend = async () => {
-        const response = await fetch(`http://localhost:3001/users/${_id}/${friendId}`, {
-            method: "PUT",
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
-            },
-        });
-        const data = await response.json();
-        dispatch(setFriends({ friends: data }));
+        const response = await api.put(`${Apis.user.index}/${_id}/${friendId}`);
+        if (response.result) {
+            dispatch(setFriends({ friends: response.friends }));
+        } else {
+            toast.error("Unable To Add And Remove Friends!");
+        }
     }
 
+    // delete post
     const handleDeletePost = async () => {
         try {
-            const response = await fetch(`http://localhost:3001/posts/${postId}/delete`, {
-                method: "DELETE",
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                }
-            });
-
-            const res = await response.json();
-            if (res.result) {
+            const response = await api.delete(`${Apis.post.index}/${postId}/delete`);
+            if (response.result) {
                 getPosts();
             } else {
                 console.error('Failed to delete Post.');
