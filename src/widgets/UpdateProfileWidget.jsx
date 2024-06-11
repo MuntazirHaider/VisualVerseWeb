@@ -1,10 +1,10 @@
 import * as yup from "yup";
+import { useState } from "react";
 import { Formik } from "formik";
 import Dropzone from "react-dropzone";
 // @mui
 import {
     Box,
-    Button,
     TextField,
     useMediaQuery,
     Typography,
@@ -14,14 +14,20 @@ import {
     DialogContent,
     DialogActions
 } from "@mui/material"
-import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
+import { LoadingButton } from "@mui/lab";
+import SaveAltOutlinedIcon from '@mui/icons-material/SaveAltOutlined';
+import HighlightOffOutlinedIcon from '@mui/icons-material/HighlightOffOutlined';
 // component
 import FlexBetween from "components/FlexBetween";
 // states
-import { useSelector } from "react-redux";
+import { useSelector, useDispatch } from "react-redux";
+import { setUser } from "state";
+// routes
+import RestApiClient from "routes/RestApiClient";
+import Apis from "routes/apis";
 // utils
 import { toast } from "react-toastify";
-
+import ClipLoader from "react-spinners/ClipLoader";
 
 
 const updateProfileSchema = yup.object().shape({
@@ -30,7 +36,7 @@ const updateProfileSchema = yup.object().shape({
     lastName: yup.string().required("Required Field").min(2, 'Atleast 2 characters are required').max(20, 'Maximum 20 characters are allowed'),
     location: yup.string().max(30, 'Maximum 30 characters are allowed'),
     occupation: yup.string().max(50, 'Maximum 50 characters are allowed'),
-    picture: yup.string(),
+    picturePath: yup.string(),
 });
 
 
@@ -39,8 +45,11 @@ const UpdateProfileWidget = (props) => {
     const { palette } = useTheme();
     const token = useSelector((state) => state.token);
     const isNonMobScreens = useMediaQuery("(min-width: 600px)");
+    const [isUploading, setIsUploading] = useState(false);
+    const dispatch = useDispatch();
 
     const dialogBackground = palette.background.default;
+    const api = new RestApiClient(token);
 
     const initialProfileValue = {
         firstName: currentProfile?.firstName || "",
@@ -48,36 +57,19 @@ const UpdateProfileWidget = (props) => {
         lastName: currentProfile?.lastName || "",
         location: currentProfile?.location || "",
         occupation: currentProfile?.occupation || "",
-        picture: currentProfile?.picturePath || "",
+        picturePath: currentProfile?.picturePath || "",
     }
 
-    const updateWithOutImage = async (values, onSubmitProps) => {
+    const updateProfile = async (values, onSubmitProps) => {
         try {
-            const body = {
-                "userId": currentProfile._id,
-                "firstName": values.firstName,
-                "middleName": values.middleName,
-                "lastName": values.lastName,
-                "location": values.location,
-                "occupation": values.occupation
-            }
-            const updateUserResponse = await fetch(
-                "http://localhost:3001/users/update",
-                {
-                    method: "PUT",
-                    headers: {
-                        "Content-Type": "application/json",
-                        'Authorization': `Bearer ${token}`
-                    },
-                    body: JSON.stringify(body),
-                }
-            );
-
-            const response = await updateUserResponse.json();
-            console.log("Response", response);
+            values.userId = currentProfile._id;
+            const response = await api.put(Apis.user.update, values)
 
             if (response.result) {
                 getUser();
+                dispatch(
+                    setUser({ user: response.user })
+                );
                 onClose();
                 toast.success("Profile Updated Successfully!");
             } else {
@@ -89,10 +81,25 @@ const UpdateProfileWidget = (props) => {
         }
     }
 
+    const uploadFile = async (img) => {
+        setIsUploading(true)
+        const data = new FormData();
+        data.append("file", img);
+        data.append("upload_preset", 'Image_Preset');
+
+        try {
+            const response = await api.uploadMedia(Apis.upload.image, data);
+            const { secure_url } = response;
+            setIsUploading(false);
+            return secure_url;
+        } catch (error) {
+            console.error(error);
+        }
+    }
+
 
     const handleFormSubmit = async (values, onSubmitProps) => {
-        console.log("Form submitted with values:", values);
-        await updateWithOutImage(values, onSubmitProps);
+        await updateProfile(values, onSubmitProps);
     }
 
     return (
@@ -104,7 +111,7 @@ const UpdateProfileWidget = (props) => {
             PaperProps={{
                 sx: {
                     backgroundColor: dialogBackground,
-                    borderRadius: 3
+                    borderRadius: 3,
                 },
             }}
         >
@@ -125,7 +132,7 @@ const UpdateProfileWidget = (props) => {
                 }) => (
                     <form onSubmit={handleSubmit}>
                         <DialogTitle fontFamily={"sans-serif"}>Update Profile</DialogTitle>
-                        <DialogContent sx={{ height: "325px", overflowY: "auto", mt: 2 }}>
+                        <DialogContent sx={{ mt: 2, height: 480, }}>
                             {/* INPUT FIELDS */}
                             <Box
                                 display="grid"
@@ -172,24 +179,73 @@ const UpdateProfileWidget = (props) => {
                                     <Dropzone
                                         acceptedFiles=".jpeg,.jpg,.png"
                                         multiple={false}
-                                        onDrop={(acceptedFiles) =>
-                                            setFieldValue("picture", acceptedFiles[0])
-                                        }
+                                        onDrop={(acceptedFiles) => {
+                                            const img = acceptedFiles[0];
+                                            uploadFile(img).then(url => {
+                                                setFieldValue("picturePath", url);
+                                            }).catch(error => {
+                                                console.error("Failed to upload image:", error);
+                                                toast.error("Failed to upload image");
+                                            });
+                                        }}
                                     >
                                         {({ getRootProps, getInputProps }) => (
                                             <Box
                                                 {...getRootProps()}
                                                 border={`2px dashed ${palette.primary.main}`}
                                                 p="1rem"
-                                                sx={{ "&:hover": { cursor: "pointer" } }}
+                                                sx={{ cursor: 'pointer' }}
                                             >
                                                 <input {...getInputProps()} />
-                                                {!values.picture ? (
-                                                    <Typography sx={{ color: palette.neutral.main }}>Update picture here</Typography>
+                                                {isUploading ? (
+                                                    // Display spinner while uploading
+                                                    <Box
+                                                        sx={{
+                                                            display: 'flex',
+                                                            justifyContent: 'center',
+                                                            alignItems: 'center',
+                                                            minHeight: { xs: 233, md: 167 }
+                                                        }}
+                                                    >
+                                                        <ClipLoader
+                                                            color="inherit"
+                                                            loading={true}
+                                                            size={50}
+                                                            aria-label="Loading Spinner"
+                                                            data-testid="loader"
+                                                        />
+                                                    </Box>
+
+                                                ) : !values.picturePath ? (
+                                                    // Display drop image text with icon
+                                                    <Box sx={{ display: 'flex', gap: 2, minHeight: { xs: 233, md: 167 }, alignItems: 'center', justifyContent: 'center' }}>
+                                                        <Typography sx={{ color: palette.neutral.main, }} variant="h4">Add picture here </Typography>
+                                                        <SaveAltOutlinedIcon sx={{ fontSize: "1.5rem" }} />
+                                                    </Box>
                                                 ) : (
-                                                    <FlexBetween>
-                                                        <Typography>{values.picture?.name || values.picture}</Typography>
-                                                        <EditOutlinedIcon />
+                                                    // Display image preview
+                                                    <FlexBetween sx={{ "&:hover": { filter: values.picturePath && "brightness(0.5)" } }}>
+                                                        <Box
+                                                            component="img"
+                                                            sx={{
+                                                                width: "100%",
+                                                                maxHeight: { xs: 233, md: 167 },
+                                                                maxWidth: { xs: 350, md: 250 },
+                                                            }}
+                                                            alt="Uploaded"
+                                                            src={values.picturePath}
+                                                        />
+                                                        <HighlightOffOutlinedIcon
+                                                            sx={{
+                                                                color: 'inherit',
+                                                                fontSize: '1.5rem',
+                                                                position: 'absolute',
+                                                                top: 2,
+                                                                right: 2,
+                                                                cursor: 'pointer',
+                                                            }}
+                                                            onClick={() => setFieldValue('picturePath', '')}
+                                                        />
                                                     </FlexBetween>
                                                 )}
                                             </Box>
@@ -219,7 +275,7 @@ const UpdateProfileWidget = (props) => {
                             </Box>
                         </DialogContent>
                         <DialogActions sx={{ p: 3 }}>
-                            <Button
+                            <LoadingButton
                                 sx={{
                                     backgroundColor: '#ff3333',
                                     color: palette.background.alt,
@@ -230,8 +286,8 @@ const UpdateProfileWidget = (props) => {
                                 }}
                                 onClick={onClose}>
                                 Cancel
-                            </Button>
-                            <Button
+                            </LoadingButton>
+                            <LoadingButton
                                 sx={{
                                     backgroundColor: palette.primary.main,
                                     color: palette.background.alt,
@@ -243,7 +299,7 @@ const UpdateProfileWidget = (props) => {
                                 type="submit"
                             >
                                 Update
-                            </Button>
+                            </LoadingButton>
                         </DialogActions>
                     </form>
                 )}

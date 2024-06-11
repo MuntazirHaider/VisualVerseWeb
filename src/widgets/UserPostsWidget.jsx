@@ -10,25 +10,30 @@ import {
     Delete
 } from '@mui/icons-material';
 // @mui
-import { Box, Divider, IconButton, Typography, useTheme, TextField, Paper, Menu, MenuItem,  ListItemIcon } from '@mui/material';
+import { Box, Divider, IconButton, Typography, useTheme, TextField, Paper, Menu, MenuItem, ListItemIcon } from '@mui/material';
 // components
 import FlexBetween from 'components/FlexBetween';
 import Friends from "components/Friends";
 import WidgetWrapper from 'components/WidgetWrapper';
 import UserImage from 'components/UserImage';
+// routes
+import RestApiClient from "routes/RestApiClient";
+import Apis from "routes/apis";
 // react
 import { useState } from 'react';
 // state
 import { useDispatch, useSelector } from 'react-redux';
 import { setPost } from 'state';
+//  utils
+import { toast } from "react-toastify";
 
 const UserPostWidget = ({
     postId,
     postUserId,
     fullName,
     description,
-    // location,
-    picture,
+    mediaType,
+    media,
     userPicturePath,
     likes,
     comments,
@@ -46,6 +51,8 @@ const UserPostWidget = ({
     const [anchorEl, setAnchorEl] = useState(null);
     const open = Boolean(anchorEl);
 
+    const api = new RestApiClient(token);
+
     const { palette } = useTheme();
     const main = palette.neutral.main;
     const mediumMain = palette.neutral.mediumMain;
@@ -62,30 +69,22 @@ const UserPostWidget = ({
     // like post
     const patchLike = async () => {
         try {
-            const body = JSON.stringify({ userId: loggedInUserId });
 
-            const response = await fetch(`http://localhost:3001/posts/${postId}/like`, {
-                method: "PUT",
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                    "Content-type": "application/json",
-                },
-                body: body,
-            });
+            const body = { userId: loggedInUserId };
+            const response = await api.put(`${Apis.post.index}/${postId}/like`, body);
 
-            if (!response.ok) {
-                throw new Error('Failed to patch like.');
+            if (response.result) {
+                dispatch(setPost({ post: response.post }));
+            } else {
+                toast.error("Unable To Like And Dislike Post");
             }
 
-            console.log("response", response);
-
-            const updatedPost = await response.json();
-            dispatch(setPost({ post: updatedPost }));
         } catch (error) {
             console.error('Error in patching like:', error);
         }
     };
 
+    // comment post
     const handleSubmitComment = async () => {
         if (comment.trim() !== '') {
             const body = {
@@ -94,19 +93,8 @@ const UserPostWidget = ({
                 "picturePath": picturePath,
                 "comment": comment,
             };
-
-            const response = await fetch(`http://localhost:3001/posts/${postId}/comment`, {
-                method: "POST",
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify(body),
-            });
-
-            const res = await response.json();
-            console.log("res", res);
-            if (res.result) {
+            const response = await api.post(`${Apis.post.index}/${postId}/comment`, body);
+            if (response.result) {
                 getPosts();
                 setComment('');
             }
@@ -115,32 +103,22 @@ const UserPostWidget = ({
 
     const handleDeleteComment = async (commentMsg) => {
         try {
-            const response = await fetch(`http://localhost:3001/posts/${postId}/comment/delete`, {
-                method: "DELETE",
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify({ deletedComment: commentMsg })
-            });
-
-            const res = await response.json();
-            if (res.result) {
+            const body = { deletedComment: commentMsg };
+            const response = await api.delete(`${Apis.post.index}/${postId}/comment/delete`, body);
+            if (response.result) {
                 getPosts();
             } else {
-                console.error('Failed to delete comment.');
+                toast.error("Failed To Delete Comment!");
             }
         } catch (error) {
             console.error('Error in deleting comment:', error);
         }
     }
 
-
-
     return (
         <WidgetWrapper mb="2rem">
             <Friends
-            postId={postId}
+                postId={postId}
                 friendId={postUserId}
                 name={fullName}
                 // subtitle={location}
@@ -149,14 +127,23 @@ const UserPostWidget = ({
             />
 
             <Typography color={main} sx={{ mt: "1rem" }}>{description}</Typography>
-            {picture && (
+            {media && (mediaType === 'image' ? (
                 <img
                     width="100%"
                     height="auto"
                     style={{ borderRadius: "0.75rem", marginTop: "0.75rem" }}
-                    src={`http://localhost:3001/assets/${picture}`}
+                    src={media}
                     alt="post"
                 />
+            ) : (
+                <video
+                    width="100%"
+                    height="auto"
+                    style={{ borderRadius: "0.75rem", marginTop: "0.75rem",maxHeight:"600px" }}
+                    src={media}
+                    alt="post"
+                    controls
+                />)
             )}
             <FlexBetween mt="0.25rem">
                 <FlexBetween gap="1rem">
@@ -220,38 +207,38 @@ const UserPostWidget = ({
                                 {
                                     comment.userId === loggedInUserId && (
                                         <>
-                                        <IconButton
-                                            aria-label="more"
-                                            aria-controls={open ? 'long-menu' : undefined}
-                                            aria-expanded={open ? 'true' : undefined}
-                                            aria-haspopup="true"
-                                            onClick={handleClick}
-                                        >
-                                            <MoreVert />
-                                        </IconButton>
-                                        <Menu
-                                            id="long-menu"
-                                            MenuListProps={{
-                                                'aria-labelledby': 'long-button',
-                                            }}
-                                            anchorEl={anchorEl}
-                                            open={open}
-                                            onClose={handleClose}
-                                        >
-                                            <MenuItem onClick={handleClose}>
-                                                <ListItemIcon>
-                                                    <Edit />
-                                                </ListItemIcon>
-                                                <Typography variant="inherit">Edit</Typography>
-                                            </MenuItem>
-                                            <MenuItem onClick={() => handleDeleteComment(comment.comment)}>
-                                                <ListItemIcon>
-                                                    <Delete />
-                                                </ListItemIcon>
-                                                <Typography variant="inherit">Delete</Typography>
-                                            </MenuItem>
-                                        </Menu>
-                                    </>
+                                            <IconButton
+                                                aria-label="more"
+                                                aria-controls={open ? 'long-menu' : undefined}
+                                                aria-expanded={open ? 'true' : undefined}
+                                                aria-haspopup="true"
+                                                onClick={handleClick}
+                                            >
+                                                <MoreVert />
+                                            </IconButton>
+                                            <Menu
+                                                id="long-menu"
+                                                MenuListProps={{
+                                                    'aria-labelledby': 'long-button',
+                                                }}
+                                                anchorEl={anchorEl}
+                                                open={open}
+                                                onClose={handleClose}
+                                            >
+                                                <MenuItem onClick={handleClose}>
+                                                    <ListItemIcon>
+                                                        <Edit />
+                                                    </ListItemIcon>
+                                                    <Typography variant="inherit">Edit</Typography>
+                                                </MenuItem>
+                                                <MenuItem onClick={() => handleDeleteComment(comment.comment)}>
+                                                    <ListItemIcon>
+                                                        <Delete />
+                                                    </ListItemIcon>
+                                                    <Typography variant="inherit">Delete</Typography>
+                                                </MenuItem>
+                                            </Menu>
+                                        </>
                                     )
                                 }
                             </Box>

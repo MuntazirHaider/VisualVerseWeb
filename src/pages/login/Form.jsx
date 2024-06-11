@@ -5,15 +5,18 @@ import Dropzone from "react-dropzone";
 // @mui
 import {
     Box,
-    Button,
     TextField,
     useMediaQuery,
     Typography,
     useTheme
 } from "@mui/material"
-import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
+import LoadingButton from '@mui/lab/LoadingButton';
+import SaveAltOutlinedIcon from '@mui/icons-material/SaveAltOutlined';
+import HighlightOffOutlinedIcon from '@mui/icons-material/HighlightOffOutlined';
 // routes
 import { useNavigate } from "react-router-dom";
+import Apis from "routes/apis";
+import RestApiClient from "routes/RestApiClient";
 // component
 import FlexBetween from "components/FlexBetween";
 // states
@@ -21,8 +24,9 @@ import { useDispatch } from "react-redux";
 import { setLogin } from "state";
 // utils
 import { toast } from "react-toastify";
+import ClipLoader from "react-spinners/ClipLoader";
 
-
+const api = new RestApiClient();
 
 const registerSchema = yup.object().shape({
     firstName: yup.string().required("Required Field").min(2, 'Atleast 2 characters are required').max(20, 'Maximum 20 characters are allowed'),
@@ -32,7 +36,7 @@ const registerSchema = yup.object().shape({
     password: yup.string().required("Required Field").min(6, 'Atleast 6 characters are required').max(20, 'Maximum 20 characters are allowed'),
     location: yup.string().max(30, 'Maximum 30 characters are allowed'),
     occupation: yup.string().max(50, 'Maximum 50 characters are allowed'),
-    picture: yup.string(),
+    picturePath: yup.string(),
 });
 
 const loginSchema = yup.object().shape({
@@ -48,7 +52,7 @@ const initialValRegister = {
     password: "",
     location: "",
     occupation: "",
-    picture: "",
+    picturePath: "",
 }
 
 const initialValLogin = {
@@ -58,6 +62,7 @@ const initialValLogin = {
 
 const Form = () => {
     const [pageType, setpageType] = useState("login");
+    const [isUploading, setIsUploading] = useState(false);
     const { palette } = useTheme();
     const dispatch = useDispatch();
     const navigate = useNavigate();
@@ -66,26 +71,14 @@ const Form = () => {
 
     const register = async (values, onSubmitProps) => {
         try {
-            const formData = new FormData(); // allow to send the form info with image
-        for (const value in values) {
-            formData.append(value, values[value])
-        }
-        formData.append("picturePath", values.picture.name)
-        const savedUserResponse = await fetch(
-            "http://localhost:3001/auth/register",
-            {
-                method: "POST",
-                body: formData,
+            const response = await api.authPost(Apis.auth.register, values);
+            onSubmitProps.resetForm();
+            if (response.result) {
+                setpageType("login");
+                toast.success("New User Registered Successfully!");
+            } else {
+                toast.error("Something Went Wrong!");
             }
-        );
-        const savedUser = await savedUserResponse.json();
-        onSubmitProps.resetForm();
-        if (savedUser) {
-            setpageType("login");
-            toast.success("New User Registered Successfully!");
-        }else{
-            toast.error("Something Went Wrong!");
-        }
         } catch (error) {
             console.log(error);
         }
@@ -93,30 +86,38 @@ const Form = () => {
 
     const login = async (values, onSubmitProps) => {
         try {
-            const loggedInResponse = await fetch(
-                "http://localhost:3001/auth/login",
-                {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(values),
-                }
-            );
-            const loggedIn = await loggedInResponse.json();
+            const response = await api.authPost(Apis.auth.login, values);
             onSubmitProps.resetForm();
-            if (loggedIn.token) {
+            if (response.token) {
                 toast.success("Login Successfully!");
                 dispatch(
                     setLogin({
-                        user: loggedIn.user,
-                        token: loggedIn.token
+                        user: response.user,
+                        token: response.token
                     })
                 );
                 navigate("/home");
-            }else{
+            } else {
                 toast.error("Invalid Credentials!");
             }
         } catch (error) {
             console.log(error.message);
+        }
+    }
+
+    const uploadFile = async (img) => {
+        setIsUploading(true)
+        const data = new FormData();
+        data.append("file", img);
+        data.append("upload_preset", 'Image_Preset');
+
+        try {
+            const response = await api.uploadMedia(Apis.upload.image, data);
+            const { secure_url } = response;
+            setIsUploading(false);
+            return secure_url;
+        } catch (error) {
+            console.error(error);
         }
     }
 
@@ -145,9 +146,9 @@ const Form = () => {
                     {/* INPUT FIELDS */}
                     <Box
                         display="grid"
-                        gap="6%"
+                        gap="4%"
                         gridTemplateColumns="repeat(3, minmax(0, 1fr))"
-                        sx={{ "& > div": { gridColumn: isNonMobScreens ? undefined : "span 3" },  mb: !isNonMobScreens ? "100px" : '0px' }}
+                        sx={{ "& > div": { gridColumn: isNonMobScreens ? undefined : "span 3" }, mb: !isNonMobScreens ? "100px" : '0px' }}
                     >
                         {!isLogin && (
                             <>
@@ -210,24 +211,69 @@ const Form = () => {
                                     <Dropzone
                                         acceptedFiles=".jpeg,.jpg,.png"
                                         multiple={false}
-                                        onDrop={(acceptedFiles) =>
-                                            setFieldValue("picture", acceptedFiles[0])
-                                        }
+                                        onDrop={(acceptedFiles) => {
+                                            const img = acceptedFiles[0];
+                                            uploadFile(img).then(url => {
+                                                setFieldValue("picturePath", url);
+                                            }).catch(error => {
+                                                console.error("Failed to upload image:", error);
+                                                toast.error("Failed to upload image");
+                                            });
+                                        }}
                                     >
                                         {({ getRootProps, getInputProps }) => (
                                             <Box
                                                 {...getRootProps()}
                                                 border={`2px dashed ${palette.primary.main}`}
                                                 p="1rem"
-                                                sx={{ "&:hover": { cursor: "pointer" } }}
+                                                sx={{ "&:hover": { cursor: "pointer", filter: values.picturePath && "brightness(0.5)" } }}
+
                                             >
                                                 <input {...getInputProps()} />
-                                                {!values.picture ? (
-                                                    <Typography sx={{ color: palette.neutral.main }}>Add picture here</Typography>
+                                                {isUploading ? (
+                                                    // Display spinner while uploading
+                                                    <Box
+                                                        sx={{
+                                                            display: 'flex',
+                                                            justifyContent: 'center',
+                                                            alignItems: 'center',
+                                                            height: 200,
+                                                            maxHeight: { xs: 200, md: 167 }
+                                                        }}
+                                                    >
+                                                        <ClipLoader
+                                                            color="inherit"
+                                                            loading={true}
+                                                            size={50}
+                                                            aria-label="Loading Spinner"
+                                                            data-testid="loader"
+                                                        />
+                                                    </Box>
+
+                                                ) : !values.picturePath ? (
+                                                    // Display drop image text with icon
+                                                    <Box sx={{ display: 'flex', gap: 2, height: 200, alignItems: 'center', justifyContent: 'center' }}>
+                                                        <Typography sx={{ color: palette.neutral.main, }} variant="h4">Add picture here </Typography>
+                                                        <SaveAltOutlinedIcon sx={{ fontSize: "1.5rem" }} />
+                                                    </Box>
                                                 ) : (
+                                                    // Display image preview
                                                     <FlexBetween>
-                                                        <Typography>{values.picture.name}</Typography>
-                                                        <EditOutlinedIcon />
+                                                        <Box
+                                                            component="img"
+                                                            sx={{
+                                                                height: 233,
+                                                                width: "100%",
+                                                                maxHeight: { xs: 233, md: 167 },
+                                                                maxWidth: { xs: 350, md: 250 },
+                                                            }}
+                                                            alt="Uploaded"
+                                                            src={values.picturePath}
+                                                        />
+                                                        <HighlightOffOutlinedIcon
+                                                            sx={{ position: 'absolute', top: 3, right: 3, color: 'inherit', fontSize: "1.5rem" }}
+                                                            onClick={() => setFieldValue('picturePath', '')}
+                                                        />
                                                     </FlexBetween>
                                                 )}
                                             </Box>
@@ -257,12 +303,12 @@ const Form = () => {
                             helperText={touched.password && errors.password}
                             sx={{ gridColumn: "span 3" }}
                         />
-                        <Typography sx={{ color: palette.neutral.mediumMain, mb: "14rem", width: "10rem"}}>* Fields are mandatory</Typography>
+                        <Typography sx={{ color: palette.neutral.mediumMain, mb: "14rem", width: "10rem" }}>* Fields are mandatory</Typography>
                     </Box>
 
                     {/* BUTTONS */}
                     <Box>
-                        <Button
+                        <LoadingButton
                             fullWidth
                             type="submit"
                             sx={{
@@ -270,11 +316,11 @@ const Form = () => {
                                 p: "1rem",
                                 backgroundColor: palette.primary.main,
                                 color: palette.background.alt,
-                                "&:hover": { color: palette.primary.main }
+                                "&:hover": { color: palette.primary.main },
                             }}
                         >
                             {isLogin ? "LOGIN" : "REGISTER"}
-                        </Button>
+                        </LoadingButton>
                         <Typography onClick={() => {
                             setpageType(isLogin ? "register" : "login")
                             resetForm();
