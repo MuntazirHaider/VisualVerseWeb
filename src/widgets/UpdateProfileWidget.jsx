@@ -15,6 +15,7 @@ import {
     DialogActions
 } from "@mui/material"
 import { LoadingButton } from "@mui/lab";
+// icons
 import SaveAltOutlinedIcon from '@mui/icons-material/SaveAltOutlined';
 import HighlightOffOutlinedIcon from '@mui/icons-material/HighlightOffOutlined';
 // component
@@ -29,7 +30,6 @@ import Apis from "routes/apis";
 import { toast } from "react-toastify";
 import ClipLoader from "react-spinners/ClipLoader";
 
-
 const updateProfileSchema = yup.object().shape({
     firstName: yup.string().required("Required Field").min(2, 'Atleast 2 characters are required').max(20, 'Maximum 20 characters are allowed'),
     middleName: yup.string().max(15, 'Maximum 15 characters are allowed'),
@@ -39,17 +39,24 @@ const updateProfileSchema = yup.object().shape({
     picturePath: yup.string(),
 });
 
-
 const UpdateProfileWidget = (props) => {
+
     const { currentProfile, onClose, open, getUser } = props;
-    const { palette } = useTheme();
+    const [isUploading, setIsUploading] = useState(false);      /* for is image uploading?  */
+
     const token = useSelector((state) => state.token);
     const isNonMobScreens = useMediaQuery("(min-width: 600px)");
-    const [isUploading, setIsUploading] = useState(false);
-    const dispatch = useDispatch();
 
-    const dialogBackground = palette.background.default;
+    const { palette } = useTheme();
+    const dispatch = useDispatch();
     const api = new RestApiClient(token);
+
+    // colors
+    const backgroundDefault = palette.background.default;
+    const neutralMedium = palette.neutral.medium;
+    const primaryMain = palette.primary.main;
+    const neutralMain = palette.neutral.main;
+    const backgroundAlt = palette.background.alt
 
     const initialProfileValue = {
         firstName: currentProfile?.firstName || "",
@@ -60,6 +67,7 @@ const UpdateProfileWidget = (props) => {
         picturePath: currentProfile?.picturePath || "",
     }
 
+    // to update a profile
     const updateProfile = async (values, onSubmitProps) => {
         try {
             values.userId = currentProfile._id;
@@ -81,6 +89,7 @@ const UpdateProfileWidget = (props) => {
         }
     }
 
+    // to upload a profile image
     const uploadFile = async (img) => {
         setIsUploading(true)
         const data = new FormData();
@@ -97,7 +106,7 @@ const UpdateProfileWidget = (props) => {
         }
     }
 
-
+    // submit update form
     const handleFormSubmit = async (values, onSubmitProps) => {
         await updateProfile(values, onSubmitProps);
     }
@@ -110,7 +119,7 @@ const UpdateProfileWidget = (props) => {
             maxWidth='md'
             PaperProps={{
                 sx: {
-                    backgroundColor: dialogBackground,
+                    backgroundColor: backgroundDefault,
                     borderRadius: 3,
                 },
             }}
@@ -172,7 +181,7 @@ const UpdateProfileWidget = (props) => {
                                 />
                                 <Box
                                     gridColumn="span 3"
-                                    border={`1px solid ${palette.neutral.medium}`}
+                                    border={`1px solid ${neutralMedium}`}
                                     borderRadius="5px"
                                     p="1rem"
                                 >
@@ -192,7 +201,7 @@ const UpdateProfileWidget = (props) => {
                                         {({ getRootProps, getInputProps }) => (
                                             <Box
                                                 {...getRootProps()}
-                                                border={`2px dashed ${palette.primary.main}`}
+                                                border={`2px dashed ${primaryMain}`}
                                                 p="1rem"
                                                 sx={{ cursor: 'pointer' }}
                                             >
@@ -219,12 +228,12 @@ const UpdateProfileWidget = (props) => {
                                                 ) : !values.picturePath ? (
                                                     // Display drop image text with icon
                                                     <Box sx={{ display: 'flex', gap: 2, minHeight: { xs: 233, md: 167 }, alignItems: 'center', justifyContent: 'center' }}>
-                                                        <Typography sx={{ color: palette.neutral.main, }} variant="h4">Add picture here </Typography>
+                                                        <Typography sx={{ color: neutralMain, }} variant="h4">Add Picture</Typography>
                                                         <SaveAltOutlinedIcon sx={{ fontSize: "1.5rem" }} />
                                                     </Box>
                                                 ) : (
                                                     // Display image preview
-                                                    <FlexBetween sx={{ "&:hover": { filter: values.picturePath && "brightness(0.5)" } }}>
+                                                    <FlexBetween sx={{ "&:hover": { filter: values.picturePath && "brightness(0.5)" }, position: 'relative' }}>
                                                         <Box
                                                             component="img"
                                                             sx={{
@@ -278,7 +287,7 @@ const UpdateProfileWidget = (props) => {
                             <LoadingButton
                                 sx={{
                                     backgroundColor: '#ff3333',
-                                    color: palette.background.alt,
+                                    color: backgroundAlt,
                                     borderRadius: "3rem",
                                     "&:hover": { color: '#ff3333' },
                                     width: '10%',
@@ -289,10 +298,10 @@ const UpdateProfileWidget = (props) => {
                             </LoadingButton>
                             <LoadingButton
                                 sx={{
-                                    backgroundColor: palette.primary.main,
-                                    color: palette.background.alt,
+                                    backgroundColor: primaryMain,
+                                    color: backgroundAlt,
                                     borderRadius: "3rem",
-                                    "&:hover": { color: palette.primary.main },
+                                    "&:hover": { color: primaryMain },
                                     width: '10%',
                                     height: '10%'
                                 }}

@@ -18,10 +18,15 @@ const Apis = {
   upload: {
     image: mediaPath(`/${cloudName}/image/upload`),
     video: mediaPath(`/${cloudName}/video/upload`),
+    audio: mediaPath(`/${cloudName}/raw/upload`),
+    document: mediaPath(`/${cloudName}/raw/upload`),
   },
   auth: {
     login: path('auth/login'),
-    register: path('auth/register')
+    register: path('auth/register'),
+    forgetPassword: path('auth/forget-password'),
+    verifyOtp: path('auth/verify-otp'),
+    changePassword: path('auth/change-password'),
   },
   user: {
     index: path('users'),
@@ -41,6 +46,9 @@ const Apis = {
   },
   notifications: {
     index: path('notifications')
+  },
+  feedback: {
+    index: path('feedback')
   }
 
 

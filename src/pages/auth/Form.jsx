@@ -8,20 +8,26 @@ import {
     TextField,
     useMediaQuery,
     Typography,
-    useTheme
+    useTheme,
+    IconButton,
+    InputAdornment
 } from "@mui/material"
-import LoadingButton from '@mui/lab/LoadingButton';
-import SaveAltOutlinedIcon from '@mui/icons-material/SaveAltOutlined';
-import HighlightOffOutlinedIcon from '@mui/icons-material/HighlightOffOutlined';
+import { LoadingButton } from '@mui/lab';
+// icons
+import {
+    SaveAltOutlined as SaveAltOutlinedIcon,
+    HighlightOffOutlined as HighlightOffOutlinedIcon,
+    Visibility,
+    VisibilityOff
+} from '@mui/icons-material';
 // routes
 import { useNavigate } from "react-router-dom";
 import Apis from "routes/apis";
 import RestApiClient from "routes/RestApiClient";
-// component
-import FlexBetween from "components/FlexBetween";
 // states
 import { useDispatch } from "react-redux";
 import { setLogin } from "state";
+import { useSocket } from "context/SocketContext";
 // utils
 import { toast } from "react-toastify";
 import ClipLoader from "react-spinners/ClipLoader";
@@ -56,19 +62,25 @@ const initialValRegister = {
 }
 
 const initialValLogin = {
-    email: "",
-    password: "",
+    email: "demo@123gmail.com",
+    password: "demo@123",
 }
 
 const Form = () => {
+
     const [pageType, setpageType] = useState("login");
     const [isUploading, setIsUploading] = useState(false);
+    const [showPassword, setShowPassword] = useState(false);
+
     const { palette } = useTheme();
+    const { connectSocket } = useSocket();
     const dispatch = useDispatch();
     const navigate = useNavigate();
+
     const isNonMobScreens = useMediaQuery("(min-width: 600px)");
     const isLogin = pageType === "login";
 
+    // To register a new user 
     const register = async (values, onSubmitProps) => {
         try {
             const response = await api.authPost(Apis.auth.register, values);
@@ -80,10 +92,11 @@ const Form = () => {
                 toast.error("Something Went Wrong!");
             }
         } catch (error) {
-            console.log(error);
+            console.error(error);
         }
     }
 
+    //  To login a user
     const login = async (values, onSubmitProps) => {
         try {
             const response = await api.authPost(Apis.auth.login, values);
@@ -96,15 +109,17 @@ const Form = () => {
                         token: response.token
                     })
                 );
+                connectSocket(response.token);
                 navigate("/home");
             } else {
                 toast.error("Invalid Credentials!");
             }
         } catch (error) {
-            console.log(error.message);
+            console.error(error.message);
         }
     }
 
+    // To upload a image
     const uploadFile = async (img) => {
         setIsUploading(true)
         const data = new FormData();
@@ -121,16 +136,25 @@ const Form = () => {
         }
     }
 
+    //  submit the form
     const handleFormSubmit = async (values, onSubmitProps) => {
         if (isLogin) await login(values, onSubmitProps);
         else await register(values, onSubmitProps);
     }
 
+    const handleClickShowPassword = () => {
+        setShowPassword((prev) => !prev);
+    };
+
     return (
         <Formik
+            key={isLogin ? 'login' : 'register'}
             onSubmit={handleFormSubmit}
             initialValues={isLogin ? initialValLogin : initialValRegister}
             validationSchema={isLogin ? loginSchema : registerSchema}
+            validateOnChange={true}
+            validateOnBlur={true}
+            validateOnMount={true}
         >
             {({
                 values,
@@ -148,7 +172,7 @@ const Form = () => {
                         display="grid"
                         gap="4%"
                         gridTemplateColumns="repeat(3, minmax(0, 1fr))"
-                        sx={{ "& > div": { gridColumn: isNonMobScreens ? undefined : "span 3" }, mb: !isNonMobScreens ? "100px" : '0px' }}
+                        sx={{ "& > div": { gridColumn: isNonMobScreens ? undefined : "span 3" }, mb: isNonMobScreens ? "0px" : '100px' }}
                     >
                         {!isLogin && (
                             <>
@@ -253,17 +277,24 @@ const Form = () => {
                                                 ) : !values.picturePath ? (
                                                     // Display drop image text with icon
                                                     <Box sx={{ display: 'flex', gap: 2, height: 200, alignItems: 'center', justifyContent: 'center' }}>
-                                                        <Typography sx={{ color: palette.neutral.main, }} variant="h4">Add picture here </Typography>
+                                                        <Typography sx={{ color: palette.neutral.main, }} variant="h4">Add Picture</Typography>
                                                         <SaveAltOutlinedIcon sx={{ fontSize: "1.5rem" }} />
                                                     </Box>
                                                 ) : (
                                                     // Display image preview
-                                                    <FlexBetween>
+                                                    <Box
+                                                        sx={{
+                                                            position: 'relative',
+                                                            display: 'flex',
+                                                            justifyContent: 'space-between',
+                                                            alignItems: 'flex-start',
+                                                        }}
+                                                    >
                                                         <Box
                                                             component="img"
                                                             sx={{
-                                                                height: 233,
-                                                                width: "100%",
+                                                                height: '100%',
+                                                                width: '100%',
                                                                 maxHeight: { xs: 233, md: 167 },
                                                                 maxWidth: { xs: 350, md: 250 },
                                                             }}
@@ -271,10 +302,14 @@ const Form = () => {
                                                             src={values.picturePath}
                                                         />
                                                         <HighlightOffOutlinedIcon
-                                                            sx={{ position: 'absolute', top: 3, right: 3, color: 'inherit', fontSize: "1.5rem" }}
+                                                            sx={{
+                                                                color: 'inherit',
+                                                                fontSize: '1.5rem',
+                                                                cursor: 'pointer',
+                                                            }}
                                                             onClick={() => setFieldValue('picturePath', '')}
                                                         />
-                                                    </FlexBetween>
+                                                    </Box>
                                                 )}
                                             </Box>
                                         )}
@@ -294,7 +329,7 @@ const Form = () => {
                         />
                         <TextField
                             label="Password *"
-                            type="password"
+                            type={showPassword ? "text" : "password"}
                             onBlur={handleBlur}
                             onChange={handleChange}
                             value={values.password}
@@ -302,15 +337,29 @@ const Form = () => {
                             error={Boolean(touched.password) && Boolean(errors.password)}
                             helperText={touched.password && errors.password}
                             sx={{ gridColumn: "span 3" }}
+                            InputProps={{
+                                endAdornment: (
+                                    <InputAdornment position="end">
+                                        <IconButton
+                                            aria-label="toggle password visibility"
+                                            onClick={handleClickShowPassword}
+                                            edge="end"
+                                        >
+                                            {showPassword ? <VisibilityOff /> : <Visibility />}
+                                        </IconButton>
+                                    </InputAdornment>
+                                )
+                            }}
                         />
                         <Typography sx={{ color: palette.neutral.mediumMain, mb: "14rem", width: "10rem" }}>* Fields are mandatory</Typography>
                     </Box>
 
-                    {/* BUTTONS */}
+                    {/* BUTTON */}
                     <Box>
                         <LoadingButton
                             fullWidth
                             type="submit"
+                            // loading
                             sx={{
                                 m: "2rem 0",
                                 p: "1rem",
@@ -321,21 +370,38 @@ const Form = () => {
                         >
                             {isLogin ? "LOGIN" : "REGISTER"}
                         </LoadingButton>
-                        <Typography onClick={() => {
-                            setpageType(isLogin ? "register" : "login")
-                            resetForm();
-                        }}
-                            sx={{
-                                textDecoration: "underline",
-                                color: palette.primary.main,
-                                "&: hover": {
-                                    cursor: "pointer",
-                                    color: palette.primary.light,
-                                }
+
+                        <Box sx={{ display: isNonMobScreens ? 'flex' : 'block', justifyContent: 'space-between' }}>
+                            <Typography onClick={() => {
+                                setpageType(isLogin ? "register" : "login");
+                                resetForm();
                             }}
-                        >
-                            {isLogin ? "Don't have an account, Sign Up here." : "Already have an account, Login here."}
-                        </Typography>
+                                sx={{
+                                    textDecoration: "underline",
+                                    color: palette.primary.main,
+                                    "&:hover": {
+                                        cursor: "pointer",
+                                        color: palette.primary.light,
+                                    }
+                                }}
+                            >
+                                {isLogin ? "Don't have an account, Sign Up here." : "Already have an account, Login here."}
+                            </Typography>
+
+                            {isLogin && <Typography
+                                onClick={() => navigate("/forget-password")}
+                                sx={{
+                                    textDecoration: "underline",
+                                    color: palette.primary.main,
+                                    "&: hover": {
+                                        cursor: "pointer",
+                                        color: palette.primary.light,
+                                    }
+                                }}
+                            >
+                                Forget Password?
+                            </Typography>}
+                        </Box>
                     </Box>
                 </form>
             )}

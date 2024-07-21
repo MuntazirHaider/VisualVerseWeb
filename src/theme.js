@@ -36,43 +36,43 @@ export const themeSettings = (mode) => {
       mode: mode,
       ...(mode === "dark"
         ? {
-            // palette values for dark mode
-            primary: {
-              dark: colorTokens.primary[200],
-              main: colorTokens.primary[500],
-              light: colorTokens.primary[800],
-            },
-            neutral: {
-              dark: colorTokens.grey[100],
-              main: colorTokens.grey[200],
-              mediumMain: colorTokens.grey[300],
-              medium: colorTokens.grey[400],
-              light: colorTokens.grey[600],
-            },
-            background: {
-              default: colorTokens.grey[900],
-              alt: colorTokens.grey[800],
-            },
-          }
+          // palette values for dark mode
+          primary: {
+            dark: colorTokens.primary[200],
+            main: colorTokens.primary[500],
+            light: colorTokens.primary[800],
+          },
+          neutral: {
+            dark: colorTokens.grey[100],
+            main: colorTokens.grey[200],
+            mediumMain: colorTokens.grey[300],
+            medium: colorTokens.grey[400],
+            light: colorTokens.grey[600],
+          },
+          background: {
+            default: colorTokens.grey[900],
+            alt: colorTokens.grey[800],
+          },
+        }
         : {
-            // palette values for light mode
-            primary: {
-              dark: colorTokens.primary[700],
-              main: colorTokens.primary[500],
-              light: colorTokens.primary[100],
-            },
-            neutral: {
-              dark: colorTokens.grey[700],
-              main: colorTokens.grey[500],
-              mediumMain: colorTokens.grey[400],
-              medium: colorTokens.grey[300],
-              light: colorTokens.grey[100],
-            },
-            background: {
-              default: colorTokens.grey[50],
-              alt: colorTokens.grey[0],
-            },
-          }),
+          // palette values for light mode
+          primary: {
+            dark: colorTokens.primary[700],
+            main: colorTokens.primary[500],
+            light: colorTokens.primary[100],
+          },
+          neutral: {
+            dark: colorTokens.grey[700],
+            main: colorTokens.grey[500],
+            mediumMain: colorTokens.grey[400],
+            medium: colorTokens.grey[300],
+            light: colorTokens.grey[100],
+          },
+          background: {
+            default: colorTokens.grey[50],
+            alt: colorTokens.grey[0],
+          },
+        }),
     },
     typography: {
       fontFamily: ["Rubik", "sans-serif"].join(","),

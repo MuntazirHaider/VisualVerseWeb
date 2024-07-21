@@ -24,23 +24,26 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 
 const Friends = ({ postId, friendId, name, subtitle, userPicturePath, getPosts }) => {
-    const dispatch = useDispatch();
-    const navigate = useNavigate();
+
+    const [anchorEl, setAnchorEl] = useState(null);
+    const open = Boolean(anchorEl);
 
     const { _id } = useSelector((state) => state.user);
     const token = useSelector((state) => state.token);
     const friends = useSelector((state) => state.user.friends);
-    const [anchorEl, setAnchorEl] = useState(null);
-    const open = Boolean(anchorEl);
-
-    const api = new RestApiClient(token);
 
     const { palette } = useTheme();
+    const dispatch = useDispatch();
+    const navigate = useNavigate();
+    const api = new RestApiClient(token);
+
+    // colors
     const primaryLight = palette.primary.light;
     const primaryDark = palette.primary.dark;
     const main = palette.neutral.main;
     const medium = palette.neutral.medium;
 
+    // variable
     const isFriends = friends.find((friend) => friend._id === friendId) !== undefined;
 
     const handleClick = (event) => {
@@ -77,14 +80,15 @@ const Friends = ({ postId, friendId, name, subtitle, userPicturePath, getPosts }
 
     return (
         <FlexBetween>
-            <FlexBetween gap="1rem">
+
+            <FlexBetween gap="1rem"
+                onClick={() => {
+                    navigate(`/profile/${friendId}`);
+                }}>
+                {/* image */}
                 <UserImage image={userPicturePath} size="55px" />
-                <Box
-                    onClick={() => {
-                        navigate(`/profile/${friendId}`);
-                        navigate(0);
-                    }}
-                >
+                {/* display user name */}
+                <Box>
                     <Typography
                         color={main}
                         variant="h5"
@@ -103,16 +107,21 @@ const Friends = ({ postId, friendId, name, subtitle, userPicturePath, getPosts }
                     </Typography>
                 </Box>
             </FlexBetween>
-            {_id !== friendId ? <IconButton
-                onClick={() => patchFriend()}
-                sx={{ backgroundColor: primaryLight, p: "0.6rem" }}
-            >
-                {isFriends ? (
-                    <PersonRemoveOutlined sx={{ color: primaryDark }} />
-                ) : (
-                    <PersonAddOutlined sx={{ color: primaryDark }} />
-                )}
-            </IconButton> :
+
+            {_id !== friendId ?
+                // show add or remove friend icon
+                <IconButton
+                    onClick={() => patchFriend()}
+                    sx={{ backgroundColor: primaryLight, p: "0.6rem" }}
+                >
+                    {isFriends ? (
+                        <PersonRemoveOutlined sx={{ color: primaryDark }} />
+                    ) : (
+                        <PersonAddOutlined sx={{ color: primaryDark }} />
+                    )}
+                </IconButton>
+                :
+                // show option bars 
                 <>
                     <IconButton
                         aria-label="more"
@@ -132,12 +141,14 @@ const Friends = ({ postId, friendId, name, subtitle, userPicturePath, getPosts }
                         open={open}
                         onClose={handleClose}
                     >
+                        {/* edit option */}
                         <MenuItem onClick={handleClose}>
                             <ListItemIcon>
                                 <Edit />
                             </ListItemIcon>
                             <Typography variant="inherit">Edit</Typography>
                         </MenuItem>
+                        {/* delete option */}
                         <MenuItem onClick={handleDeletePost}>
                             <ListItemIcon>
                                 <Delete />

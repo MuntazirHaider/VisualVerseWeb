@@ -7,17 +7,16 @@ import {
     Skeleton,
     SwipeableDrawer
 } from '@mui/material';
-// redux
+// state
 import { useSelector, useDispatch } from "react-redux";
 import { setChats, setSelectedChat } from 'state';
 // component
 import FlexBetween from 'components/FlexBetween';
+import UserChatWidget from 'widgets/UserChatWidget';
 // routes
 import Apis from "routes/apis";
 import RestApiClient from 'routes/RestApiClient';
 import { useNavigate } from 'react-router-dom';
-// pages
-import UserChatWidget from 'widgets/UserChatWidget';
 // icons
 import {
     SearchRounded as SearchIcon,
@@ -25,27 +24,25 @@ import {
 // utils
 import { toast } from "react-toastify";
 
-const SearchDrawer = ({ onOpen, onClose, drawerState, isChatSearch }) => {
+const SearchDrawer = ({ onOpen, onClose, drawerState, isChatSearch, chats }) => {
+
+    const token = useSelector((state) => state.token);
+
+    const [isLoading, setIsLoading] = useState(false);        /* for is searching for user*/
+    const [searchReults, setSearchReults] = useState([]);     /* for searched result of user*/
 
     const theme = useTheme();
     const dispatch = useDispatch();
     const navigate = useNavigate();
-
-    const token = useSelector((state) => state.token);
-    const chats = useSelector((state) => state.chats);
-
     const api = new RestApiClient(token);
-    const [isLoading, setIsLoading] = useState(false);
-    const [searchReults, setSearchReults] = useState([]);
-    
+
+    // colors
     const neutralLight = theme.palette.neutral.light;
 
+    // to select a specific chat from search result
     const handleAccessChat = async (userId) => {
         try {
-            const body = {
-                "userId": userId,
-            };
-            const response = await api.post(Apis.chats.index, body);
+            const response = await api.post(Apis.chats.index, { "userId": userId });
             if (response.result) {
                 const newChat = response.data;
                 dispatch(setSelectedChat({ selectedChat: newChat }));
@@ -63,10 +60,13 @@ const SearchDrawer = ({ onOpen, onClose, drawerState, isChatSearch }) => {
         onClose();
     }
 
+    // to select a chat from seach result
     const handleWatchProfile = (userId) => {
-        navigate(`/profile/${userId}`)
+        navigate(`/profile/${userId}`);
+        onClose();
     }
 
+    // conditional search for user 
     const handleSearch = async (query) => {
         setIsLoading(true);
         try {
@@ -76,7 +76,6 @@ const SearchDrawer = ({ onOpen, onClose, drawerState, isChatSearch }) => {
                     setIsLoading(false);
                 }, 1000);
                 setSearchReults(response.data);
-                console.log(searchReults);
             }
         } catch (error) {
             console.error(error);
