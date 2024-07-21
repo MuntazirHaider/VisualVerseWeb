@@ -1,3 +1,16 @@
+// @mui
+import {
+    Box,
+    Divider,
+    IconButton,
+    Typography,
+    useTheme,
+    TextField,
+    Paper,
+    Menu,
+    MenuItem,
+    ListItemIcon
+} from '@mui/material';
 // icons
 import {
     ChatBubbleOutlineOutlined,
@@ -7,10 +20,10 @@ import {
     SendRounded as SendIcon,
     MoreVert,
     Edit,
-    Delete
+    Delete,
+    ModeEdit,
+    Cancel
 } from '@mui/icons-material';
-// @mui
-import { Box, Divider, IconButton, Typography, useTheme, TextField, Paper, Menu, MenuItem, ListItemIcon } from '@mui/material';
 // components
 import FlexBetween from 'components/FlexBetween';
 import Friends from "components/Friends";
@@ -39,38 +52,57 @@ const UserPostWidget = ({
     comments,
     getPosts,
 }) => {
-    const dispatch = useDispatch();
 
-    const [isComments, setIsComments] = useState(false);
-    const [comment, setComment] = useState('');
+    const [isComments, setIsComments] = useState(false);     /* for toggling comment section */
+    const [isEditComment, setIsEditComment] = useState(false);     /* for toggling comment edit section */
+    const [comment, setComment] = useState('');              /* for comment  */
+    const [updatedComment, setUpdatedComment] = useState('');              /* for comment  */
+    const [anchorEl, setAnchorEl] = useState(null);         /* for open edit and delete option of comment */
+    const [selectedComment, setSelectedComment] = useState(null);  /* for selecting a comment to  edit or delete it */
+
     const token = useSelector((state) => state.token);
-    const { picturePath, firstName, middleName, lastName } = useSelector((state) => state.user);
-    const loggedInUserId = useSelector((state) => state.user._id);
-    const isLiked = Boolean(likes[loggedInUserId]) || false;
-    const likeCount = (Object.keys(likes).length) || 0;
-    const [anchorEl, setAnchorEl] = useState(null);
-    const open = Boolean(anchorEl);
+    const { picturePath, firstName, middleName, lastName, _id } = useSelector((state) => state.user);
 
+    const dispatch = useDispatch();
+    const { palette } = useTheme();
     const api = new RestApiClient(token);
 
-    const { palette } = useTheme();
+    // colors
     const main = palette.neutral.main;
-    const mediumMain = palette.neutral.mediumMain;
     const primary = palette.primary.dark;
 
-    const handleClick = (event) => {
+    // variables
+    const isLiked = Boolean(likes[_id]) || false;
+    const likeCount = (Object.keys(likes).length) || 0;
+    const open = Boolean(anchorEl);
+
+    // to toggle menu for comment
+    const handleClick = (event, comment) => {
         setAnchorEl(event.currentTarget);
+        setSelectedComment(comment);
     };
 
     const handleClose = () => {
         setAnchorEl(null);
     };
 
+    // to close the edit comment option
+    const handleCancelEditComment = () => {
+        setIsEditComment(false);
+        setSelectedComment(null);
+    }
+
+    const handleOpenEditComment = () => {
+        handleClose();
+        setUpdatedComment(selectedComment.comment);
+        setIsEditComment(true);
+    }
+
     // like post
     const patchLike = async () => {
         try {
 
-            const body = { userId: loggedInUserId };
+            const body = { userId: _id };
             const response = await api.put(`${Apis.post.index}/${postId}/like`, body);
 
             if (response.result) {
@@ -88,7 +120,7 @@ const UserPostWidget = ({
     const handleSubmitComment = async () => {
         if (comment.trim() !== '') {
             const body = {
-                "userId": loggedInUserId,
+                "userId": _id,
                 "name": `${firstName}${middleName}${lastName}`,
                 "picturePath": picturePath,
                 "comment": comment,
@@ -101,9 +133,11 @@ const UserPostWidget = ({
         }
     };
 
-    const handleDeleteComment = async (commentMsg) => {
+    // delete comment
+    const handleDeleteComment = async () => {
         try {
-            const body = { deletedComment: commentMsg };
+            const body = { deletedComment: selectedComment.comment };
+            setAnchorEl(null);
             const response = await api.delete(`${Apis.post.index}/${postId}/comment/delete`, body);
             if (response.result) {
                 getPosts();
@@ -115,23 +149,43 @@ const UserPostWidget = ({
         }
     }
 
+    // edit comment
+    const handleEditComment = async () => {
+        try {
+            const body = { userId: _id, comment: selectedComment.comment, editedComment: updatedComment };
+            const response = await api.put(`${Apis.post.index}/${postId}/comment/edit`, body);
+            if (response.result) {
+                getPosts();
+            } else {
+                toast.error("Failed To Edit Comment!");
+            }
+            handleCancelEditComment();
+        } catch (error) {
+            console.error('Error in editing comment:', error);
+        }
+    }
+
     return (
         <WidgetWrapper mb="2rem">
+
+            {/* user details */}
             <Friends
                 postId={postId}
                 friendId={postUserId}
                 name={fullName}
-                // subtitle={location}
                 userPicturePath={userPicturePath}
                 getPosts={getPosts}
             />
 
+            {/* for caption */}
             <Typography color={main} sx={{ mt: "1rem" }}>{description}</Typography>
+
+            {/* display post based on its media type */}
             {media && (mediaType === 'image' ? (
                 <img
                     width="100%"
-                    height="auto"
-                    style={{ borderRadius: "0.75rem", marginTop: "0.75rem" }}
+                    height="100%"
+                    style={{ borderRadius: "0.75rem", marginTop: "0.75rem", objectFit: 'cover', maxHeight: '650px', }}
                     src={media}
                     alt="post"
                 />
@@ -139,15 +193,17 @@ const UserPostWidget = ({
                 <video
                     width="100%"
                     height="auto"
-                    style={{ borderRadius: "0.75rem", marginTop: "0.75rem",maxHeight:"600px" }}
+                    style={{ borderRadius: "0.75rem", marginTop: "0.75rem", objectFit: 'cover', maxHeight: '650px', }}
                     src={media}
                     alt="post"
                     controls
                 />)
             )}
+
+            {/* lower part */}
             <FlexBetween mt="0.25rem">
                 <FlexBetween gap="1rem">
-
+                    {/* like icon */}
                     <FlexBetween gap="0.3rem">
                         <IconButton onClick={patchLike}>
                             {isLiked ? (
@@ -159,6 +215,7 @@ const UserPostWidget = ({
                         <Typography>{likeCount}</Typography>
                     </FlexBetween>
 
+                    {/* comment icon */}
                     <FlexBetween gap="0.3rem">
                         <IconButton onClick={() => setIsComments(!isComments)}>
                             <ChatBubbleOutlineOutlined />
@@ -167,8 +224,11 @@ const UserPostWidget = ({
                     </FlexBetween>
 
                 </FlexBetween>
+                {/* share icon */}
                 <IconButton><ShareOutlined /></IconButton>
             </FlexBetween>
+
+            {/* open comment section */}
             {isComments && (
                 <Paper
                     sx={{
@@ -178,6 +238,7 @@ const UserPostWidget = ({
                         p: 2,
                     }}
                 >
+                    {/* input field for comment */}
                     <Box sx={{ my: 2, mb: 3 }}>
                         <FlexBetween gap="0.5rem">
                             <UserImage image={picturePath} size={40} />
@@ -185,59 +246,84 @@ const UserPostWidget = ({
                                 id="standard-basic"
                                 label="Comment"
                                 variant="standard"
-                                fullWidth
+                                multiline
                                 value={comment}
                                 onChange={(e) => setComment(e.target.value)}
+                                sx={{ flexGrow: 1 }}
                             />
                             <IconButton onClick={handleSubmitComment}>
                                 <SendIcon />
                             </IconButton>
                         </FlexBetween>
                     </Box>
+
+                    {/* list all comment */}
                     {comments.map((comment, i) => (
                         <Box key={`${comment.comment}-${i}`} >
-                            <Box sx={{ my: 2, display: 'flex' }}>
-                                <Box>
-                                    <UserImage image={comment.picturePath} size={40} />
-                                </Box>
+                            <Box sx={{ my: 2, display: 'flex', alignItems: 'center' }}>
+                                {/* display image, name and comment */}
+                                <UserImage image={comment.picturePath} size={40} />
                                 <Box sx={{ ml: 1, flexGrow: 1 }}>
                                     <Typography sx={{ color: main }}>{comment.name}</Typography>
-                                    <Typography sx={{ color: mediumMain, textAlign: 'justify' }}>{comment.comment}</Typography>
+                                    {/* <Typography sx={{ color: mediumMain, textAlign: 'justify' }}>{comment.comment}</Typography> */}
+                                    <TextField
+                                        variant='standard'
+                                        fullWidth
+                                        multiline
+                                        value={(isEditComment && selectedComment?.comment === comment.comment) ? updatedComment : comment.comment}
+                                        disabled={!(isEditComment && selectedComment?.comment === comment.comment)}
+                                        InputProps={{ disableUnderline: (isEditComment && selectedComment?.comment === comment.comment) ? false : true }}
+                                        onChange={(e) => setUpdatedComment(e.target.value)}
+                                    />
                                 </Box>
+
+                                {/* edit and delete comment options */}
                                 {
-                                    comment.userId === loggedInUserId && (
+                                    comment.userId === _id && (
                                         <>
-                                            <IconButton
-                                                aria-label="more"
-                                                aria-controls={open ? 'long-menu' : undefined}
-                                                aria-expanded={open ? 'true' : undefined}
-                                                aria-haspopup="true"
-                                                onClick={handleClick}
-                                            >
-                                                <MoreVert />
-                                            </IconButton>
-                                            <Menu
-                                                id="long-menu"
-                                                MenuListProps={{
-                                                    'aria-labelledby': 'long-button',
-                                                }}
-                                                anchorEl={anchorEl}
-                                                open={open}
-                                                onClose={handleClose}
-                                            >
-                                                <MenuItem onClick={handleClose}>
-                                                    <ListItemIcon>
-                                                        <Edit />
-                                                    </ListItemIcon>
-                                                    <Typography variant="inherit">Edit</Typography>
-                                                </MenuItem>
-                                                <MenuItem onClick={() => handleDeleteComment(comment.comment)}>
-                                                    <ListItemIcon>
-                                                        <Delete />
-                                                    </ListItemIcon>
-                                                    <Typography variant="inherit">Delete</Typography>
-                                                </MenuItem>
-                                            </Menu>
+                                            {(isEditComment && selectedComment?.comment === comment.comment) ? <>
+                                                <IconButton onClick={handleEditComment}>
+                                                    <ModeEdit />
+                                                </IconButton>
+                                                <IconButton onClick={handleCancelEditComment}>
+                                                    <Cancel />
+                                                </IconButton>
+                                            </> :
+                                                <>
+                                                    <IconButton
+                                                        aria-label="more"
+                                                        aria-controls={open ? 'long-menu' : undefined}
+                                                        aria-expanded={open ? 'true' : undefined}
+                                                        aria-haspopup="true"
+                                                        onClick={(event) => handleClick(event, comment)}
+                                                    >
+                                                        <MoreVert />
+                                                    </IconButton>
+                                                    <Menu
+                                                        id="long-menu"
+                                                        MenuListProps={{
+                                                            'aria-labelledby': 'long-button',
+                                                        }}
+                                                        anchorEl={anchorEl}
+                                                        open={open}
+                                                        onClose={handleClose}
+                                                    >
+                                                        {/* edit comment */}
+                                                        <MenuItem onClick={handleOpenEditComment}>
+                                                            <ListItemIcon>
+                                                                <Edit />
+                                                            </ListItemIcon>
+                                                            <Typography variant="inherit">Edit</Typography>
+                                                        </MenuItem>
+                                                        {/* delete comment */}
+                                                        <MenuItem onClick={handleDeleteComment}>
+                                                            <ListItemIcon>
+                                                                <Delete />
+                                                            </ListItemIcon>
+                                                            <Typography variant="inherit">Delete</Typography>
+                                                        </MenuItem>
+                                                    </Menu>
+                                                </>}
                                         </>
                                     )
                                 }
@@ -247,6 +333,7 @@ const UserPostWidget = ({
                     ))}
                 </Paper>
             )}
+
         </WidgetWrapper>
     )
 }

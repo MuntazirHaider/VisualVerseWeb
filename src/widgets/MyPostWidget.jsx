@@ -1,7 +1,5 @@
 // icons
 import {
-    // EditOutlined,
-    // DeleteOutlined,
     HighlightOffOutlined,
     SaveAltOutlined,
     ImageOutlined,
@@ -15,9 +13,8 @@ import {
     Typography,
     InputBase,
     useTheme,
-    Button,
-    // IconButton,
-    useMediaQuery,
+    IconButton,
+    Tooltip,
     CardMedia
 } from "@mui/material";
 // components
@@ -37,28 +34,32 @@ import { setPosts } from "state";
 //  utils
 import { toast } from "react-toastify";
 import ClipLoader from "react-spinners/ClipLoader";
+import { LoadingButton } from "@mui/lab";
 
-const MyPostWidget = ({ picturePath }) => {
-    const dispatch = useDispatch();
+const MyPostWidget = ({ picturePath, _id }) => {
 
-    const [isMedia, setIsMedia] = useState(false);
-    const [media, setMedia] = useState(null);
-    const [mediaType, setMediaType] = useState('image')
-    const [post, setpost] = useState("");
-    const [isUploading, setIsUploading] = useState(false);
+    const [isMedia, setIsMedia] = useState(false);           /* for conditional rendering of upload box */
+    const [media, setMedia] = useState(null);                /* for uploaded media link */
+    const [mediaType, setMediaType] = useState('image')     /* for uploaded media type */
+    const [post, setpost] = useState("");                   /* for post caption */
+    const [isUploading, setIsUploading] = useState(false);  /* for upload laoding */
 
-    const { _id } = useSelector((state) => state.user);
     const token = useSelector((state) => state.token);
-    const api = new RestApiClient(token);
 
-    const isNonMobScreens = useMediaQuery("(min-width: 450px)");
-
+    const dispatch = useDispatch();
     const { palette } = useTheme();
     const navigate = useNavigate();
+    const api = new RestApiClient(token);
+
+    // colors
     const mediumMain = palette.neutral.mediumMain;
     const medium = palette.neutral.medium;
     const light = palette.neutral.light;
+    const primaryMain = palette.primary.main;
+    const neutralMain = palette.neutral.main;
+    const backgroundAlt = palette.background.alt;
 
+    // to upload a media file
     const uploadMediaFile = async (file, type) => {
         setIsUploading(true)
         const data = new FormData();
@@ -91,9 +92,7 @@ const MyPostWidget = ({ picturePath }) => {
         if (media) {
             body.picturePath = media;
         }
-
         const response = await api.post(Apis.post.index, body);
-
         if (response.result) {
             toast.success("New Post Posted!");
             dispatch(setPosts({ posts: response.posts }));
@@ -104,23 +103,25 @@ const MyPostWidget = ({ picturePath }) => {
         }
     };
 
-
     return (
         <WidgetWrapper mb='2rem'>
-            <FlexBetween gap="1.5rem">
+            {/* user profile pic and caption */}
+            <FlexBetween gap="1rem">
                 <UserImage image={picturePath} />
                 <InputBase
-                    placeholder="What's on your mind..."
+                    placeholder="paste your thought.."
                     onChange={(e) => setpost(e.target.value)}
                     value={post}
                     sx={{
-                        width: "100%",
+                        width: "90%",
                         backgroundColor: light,
                         borderRadius: "2rem",
                         padding: "1rem 2rem"
                     }}
                 />
             </FlexBetween>
+
+            {/* media upload box */}
             {isMedia && (
                 <Box
                     border={`1px solid ${medium}`}
@@ -165,7 +166,7 @@ const MyPostWidget = ({ picturePath }) => {
                         {({ getRootProps, getInputProps }) => (
                             <Box
                                 {...getRootProps()}
-                                border={`2px dashed ${palette.primary.main}`}
+                                border={`2px dashed ${primaryMain}`}
                                 p="1rem"
                                 sx={{ cursor: 'pointer' }}
                             >
@@ -192,7 +193,7 @@ const MyPostWidget = ({ picturePath }) => {
                                 ) : !media ? (
                                     // Display drop image text with icon
                                     <Box sx={{ display: 'flex', gap: 2, minHeight: { xs: 233, md: 167 }, alignItems: 'center', justifyContent: 'center' }}>
-                                        <Typography sx={{ color: palette.neutral.main, }} variant="h4">Add picture here </Typography>
+                                        <Typography sx={{ color: neutralMain, }} variant="h4">Add Picture</Typography>
                                         <SaveAltOutlined sx={{ fontSize: "1.5rem" }} />
                                     </Box>
                                 ) : (
@@ -223,6 +224,7 @@ const MyPostWidget = ({ picturePath }) => {
                                                     maxWidth: { xs: 350, md: 250 },
                                                 }}
                                             />}
+                                        {/* icon to remove uploaded image */}
                                         <HighlightOffOutlined
                                             sx={{
                                                 color: 'inherit',
@@ -245,40 +247,43 @@ const MyPostWidget = ({ picturePath }) => {
             <Divider sx={{ margin: "1.25rem 0" }} />
 
             <FlexBetween>
-                <FlexBetween gap="0.25rem" onClick={() => setIsMedia(!isMedia)} sx={{cursor: "pointer"}}>
-                    <ImageOutlined sx={{ color: mediumMain }} />
-                    <Typography color={mediumMain} sx={{ "&:hover": { color: medium } }}>
-                        Media
-                    </Typography>
-                </FlexBetween>
+                {/* media icon */}
+                <Tooltip title="Media">
+                    <IconButton onClick={() => setIsMedia(!isMedia)}>
+                        <ImageOutlined sx={{ color: mediumMain }} />
+                    </IconButton>
+                </Tooltip>
 
-                {isNonMobScreens &&
-                    <>
-                        <FlexBetween gap="0.25rem" onClick={() => navigate('/chats')} sx={{cursor: "pointer"}}>
-                            <MessageIcon sx={{ color: mediumMain }} />
-                            <Typography color={mediumMain}>Chats</Typography>
-                        </FlexBetween>
-                        <FlexBetween gap="0.25rem" sx={{cursor: "pointer"}}>
-                            <VideoIcon sx={{ color: mediumMain }} fontSize="medium" />
-                            <Typography color={mediumMain}>Video Call</Typography>
-                        </FlexBetween>
-                    </>
-                }
+                {/* chat icon */}
+                <Tooltip title="Chats">
+                    <IconButton onClick={() => navigate('/chats')}>
+                        <MessageIcon sx={{ color: mediumMain }} />
+                    </IconButton>
+                </Tooltip>
 
-                <Button
+                {/* video call icon */}
+                <Tooltip title="Video Call">
+                    <IconButton onClick={() => navigate('/video-call')}>
+                        <VideoIcon sx={{ color: mediumMain }} fontSize="medium" />
+                    </IconButton>
+                </Tooltip>
+
+                {/* post button */}
+                <LoadingButton
                     disabled={!post && !media}
+                    // loading
                     onClick={handlePost}
                     sx={{
-                        backgroundColor: palette.primary.main,
-                        color: palette.background.alt,
+                        backgroundColor: primaryMain,
+                        color: backgroundAlt,
                         borderRadius: "3rem",
-                        "&:hover": { color: palette.primary.main }
+                        "&:hover": { color: primaryMain }
                     }}
                 >
                     POST
-                </Button>
+                </LoadingButton>
             </FlexBetween>
-        </WidgetWrapper>
+        </WidgetWrapper >
     )
 }
 

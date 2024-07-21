@@ -8,6 +8,7 @@ export const getSenderName = (loggedInUserId, user) => {
 }
 
 export const getSenderPicture = (loggedInUserId, user) => {
+    if (!loggedInUserId || !user) return;
     if (loggedInUserId === user[0]._id) {
         return user[1].picturePath;
     }
@@ -16,27 +17,15 @@ export const getSenderPicture = (loggedInUserId, user) => {
     }
 }
 
-export const isLoggedInUser = (loggedInUserId, otherUserId) => {
-    return loggedInUserId === otherUserId;
+export const getSenderId = (loggedInUserId, user) => {
+    if (!loggedInUserId || !user) return;
+    if (loggedInUserId === user[0]._id) {
+        return user[1]._id;
+    } else {
+        return user[0]._id;
+    }
 }
 
-export const formatDate = (dateString) => {
-    const date = new Date(dateString);
-    const today = new Date();
-    const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
-
-    if (date.toDateString() === today.toDateString()) {
-        return "Today";
-    } else if (date.toDateString() === yesterday.toDateString()) {
-        return "Yesterday";
-    } else {
-        const options = { month: "short", day: "numeric", year: "numeric" };
-        return date.toLocaleDateString(undefined, options);
-    }
-};
-
-export const renderTime = (time) => {
-    const date = new Date(time);
-    return `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
+export const isLoggedInUser = (loggedInUserId, otherUserId) => {
+    return loggedInUserId === otherUserId;
 };

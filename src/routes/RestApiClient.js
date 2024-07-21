@@ -66,6 +66,19 @@ class RestApiClient {
     return responseData;
   }
 
+  async authPut(url, data) {
+    const response = await fetch(url, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify(data ?? {}),
+    });
+    const responseData = await response.json();
+    return responseData;
+  }
+
   async put(url, data) {
     let response;
     if (data) {

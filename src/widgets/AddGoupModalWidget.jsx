@@ -1,5 +1,5 @@
 import * as yup from "yup";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Formik } from "formik";
 import Dropzone from "react-dropzone";
 // @mui
@@ -20,7 +20,6 @@ import {
 import { LoadingButton } from "@mui/lab";
 // component
 import FlexBetween from "components/FlexBetween";
-// pages
 import UserChatWidget from "./UserChatWidget";
 // icons
 import {
@@ -28,9 +27,8 @@ import {
     SaveAltOutlined,
     HighlightOffOutlined
 } from '@mui/icons-material';
-// redux
-import { useSelector, useDispatch } from "react-redux";
 // states
+import { useSelector, useDispatch } from "react-redux";
 import { setChats, setSelectedChat } from "state";
 // routes
 import RestApiClient from "routes/RestApiClient";
@@ -38,27 +36,34 @@ import Apis from "routes/apis";
 // utils
 import { toast } from "react-toastify";
 import { ClipLoader } from "react-spinners";
+import { useSocket } from "context/SocketContext";
 
-const AddGroupModalWidget = (props) => {
-    const { onClose, open, group = {}, userId } = props;
-
-    const { palette } = useTheme();
-    const dispatch = useDispatch();
+const AddGroupModalWidget = ({ onClose, open, group = {}, userId, chats }) => {
 
     const token = useSelector((state) => state.token);
-    const chats = useSelector((state) => state.chats);
-    const api = new RestApiClient(token);
 
     const [isLoading, setIsLoading] = useState(false);
     const [currSearchQuery, setCurrSearchQuery] = useState("");
+    const [selectedChip, setSelectedChip] = useState(null);
     const [searchReults, setSearchReults] = useState([]);
-    const [selectedUser, setSelectedUser] = useState(group?.users?.filter((u) => u._id !== userId) || []);
     const [isUploading, setIsUploading] = useState(false);
+    const [selectedUser, setSelectedUser] = useState([]);
+
+    const { socket } = useSocket()
+    const { palette } = useTheme();
+    const dispatch = useDispatch();
+    const api = new RestApiClient(token);
+
+    // variable
     const isUpdate = group?._id ? true : false;
 
+    // colors
     const dialogBackground = palette.background.default;
+    const backgroundAlt = palette.background.alt;
     const neutralLight = palette.neutral.light;
-    const neutralMedium = palette.neutral.medium
+    const neutralMedium = palette.neutral.medium;
+    const neutralMain = palette.neutral.main;
+    const primaryMain = palette.primary.main;
 
     const AddGroupModalWidgetSchema = yup.object().shape({
         groupName: yup.string().required("Group name is required").min(1, 'Atleast 1 characters are required').max(20, 'Maximum 20 characters are allowed'),
@@ -70,6 +75,7 @@ const AddGroupModalWidget = (props) => {
         groupPicture: group?.groupPicture || "",
     }
 
+    // to upload a profile image
     const uploadFile = async (img) => {
         setIsUploading(true)
         const data = new FormData();
@@ -86,6 +92,7 @@ const AddGroupModalWidget = (props) => {
         }
     }
 
+    // search user which are in friend to add in group
     const handleSearch = async (query) => {
         setIsLoading(true);
         setCurrSearchQuery(query);
@@ -103,12 +110,14 @@ const AddGroupModalWidget = (props) => {
         }
     }
 
+    // to reset all states and close modal
     const handleClose = () => {
-        setSelectedUser([]);
+        setSelectedUser(group?.users?.filter((u) => u._id !== group?.groupAdmin?._id) || []);
         setSearchReults([]);
         onClose();
     }
 
+    // to add user in a group
     const handleGroup = (userToAdd) => {
         const isPresent = selectedUser.find(user => user._id === userToAdd._id);
         if (isPresent) {
@@ -118,19 +127,40 @@ const AddGroupModalWidget = (props) => {
         }
     }
 
+    // to remove a user from a group
     const handleUnSelctUser = (userToRemove) => {
         setSelectedUser(selectedUser.filter((user) => user._id !== userToRemove._id));
     }
 
-    const handleSubmit = async (values, onSubmitProps) => {
-        console.log("VALUES", values);
-        console.log("SELECTED USERS", selectedUser);
+    const handleChipClick = (userId) => {
+        setSelectedChip((prevSelectedUserId) => (prevSelectedUserId === userId ? null : userId));
+    };
 
+    const createMessage = async (message, chatId) => {
+        if (socket) {
+            try {
+                const body = {
+                    "content": message,
+                    chatId,
+                    "contentType": 'info',
+                }
+                const response = await api.post(Apis.messages.index, body);
+                if (response.result) {
+                    socket.emit("chats: new message send", response.data);
+                }
+            } catch (error) {
+                console.error(error);
+                toast.error("Unable to send message");
+            }
+        }
+    }
+
+    // to submit a modal
+    const handleSubmit = async (values, onSubmitProps) => {
         if (selectedUser.length < 1) {
             toast.error("At least 1 user must be selected");
             return;
         }
-
         try {
             const body = {
                 name: values.groupName,
@@ -139,21 +169,31 @@ const AddGroupModalWidget = (props) => {
             }
             let response;
 
+            // if it for update group
             if (isUpdate) {
                 body.chatId = group._id;
+                body.admin = selectedChip !== null ? selectedChip : userId;
+                let adminName = `${group.groupAdmin.firstName} ${group.groupAdmin.middleName} ${group.groupAdmin.lastName}`;
                 response = await api.put(Apis.group.update, body);
                 if (response.result) {
                     const updateChats = chats.filter((chat) => chat._id !== response.data._id)
                     dispatch(setChats({ chats: [response.data, ...updateChats] }));
                     dispatch(setSelectedChat({ selectedChat: response.data }));
                     toast.success("Group updated successfully");
+                    createMessage(`Group updated by ${adminName}`, response.data._id);
+                    socket.emit("chats: group updated", response.data);
+                    group = response.data;
                 }
-            } else {
+            }
+            // if it for create group
+            else {
                 response = await api.post(Apis.group.index, body);
                 if (response.result) {
                     dispatch(setChats({ chats: [response.data, ...chats] }));
                     dispatch(setSelectedChat({ selectedChat: response.data }));
                     toast.success("Group created successfully");
+                    createMessage(`Group created by ${response.data.groupAdmin.firstName} ${response.data.groupAdmin.middleName} ${response.data.groupAdmin.lastName}`, response.data._id);
+                    socket.emit("chats: group created");
                 }
             }
             handleClose();
@@ -163,7 +203,10 @@ const AddGroupModalWidget = (props) => {
         }
     }
 
-
+    useEffect(() => {
+        setSelectedUser(group?.users?.filter((u) => u._id !== group?.groupAdmin?._id) || []);
+        // eslint-disable-next-line
+    }, [isUpdate]);
 
     return (
         <Dialog
@@ -191,11 +234,12 @@ const AddGroupModalWidget = (props) => {
                     handleChange,
                     handleSubmit,
                     setFieldValue,
-                    resetForm,
                 }) => {
                     return (
                         <form onSubmit={handleSubmit}>
+                            {/* heading */}
                             <DialogTitle fontFamily={"sans-serif"}>{isUpdate ? "Update Group" : "Create Group"}</DialogTitle>
+
                             <DialogContent>
                                 {/* INPUT FIELD */}
                                 <Box
@@ -212,6 +256,7 @@ const AddGroupModalWidget = (props) => {
                                         helperText={touched.groupName && errors.groupName}
                                         sx={{ my: 1 }} />
 
+                                    {/* for profile image */}
                                     <Box
                                         border={`1px solid ${neutralMedium}`}
                                         borderRadius="5px"
@@ -233,9 +278,9 @@ const AddGroupModalWidget = (props) => {
                                             {({ getRootProps, getInputProps }) => (
                                                 <Box
                                                     {...getRootProps()}
-                                                    border={`2px dashed ${palette.primary.main}`}
+                                                    border={`2px dashed ${primaryMain}`}
                                                     p="1rem"
-                                                    sx={{ "&:hover": { cursor: "pointer", filter: values.groupPicture && "brightness(0.5)" } }}
+                                                    sx={{ "&:hover": { cursor: "pointer", filter: values.picturePath && "brightness(0.5)" } }}
 
                                                 >
                                                     <input {...getInputProps()} />
@@ -248,6 +293,8 @@ const AddGroupModalWidget = (props) => {
                                                                 alignItems: 'center',
                                                                 height: 200,
                                                                 maxHeight: { xs: 200, md: 167 }
+                                                                // minHeight: { xs: 233, md: 167 }
+
                                                             }}
                                                         >
                                                             <ClipLoader
@@ -262,12 +309,12 @@ const AddGroupModalWidget = (props) => {
                                                     ) : !values.groupPicture ? (
                                                         // Display drop image text with icon
                                                         <Box sx={{ display: 'flex', gap: 2, height: 200, alignItems: 'center', justifyContent: 'center' }}>
-                                                            <Typography sx={{ color: palette.neutral.main, }} variant="h4">Add picture here </Typography>
+                                                            <Typography sx={{ color: neutralMain, }} variant="h4">Add Picture</Typography>
                                                             <SaveAltOutlined sx={{ fontSize: "1.5rem" }} />
                                                         </Box>
                                                     ) : (
                                                         // Display image preview
-                                                        <FlexBetween>
+                                                        <Box sx={{ "&:hover": { filter: values.groupPicture && "brightness(0.5)" }, display: 'flex', justifyContent: 'space-between' }}>
                                                             <Box
                                                                 component="img"
                                                                 sx={{
@@ -280,50 +327,85 @@ const AddGroupModalWidget = (props) => {
                                                                 src={values.groupPicture}
                                                             />
                                                             <HighlightOffOutlined
-                                                                sx={{ position: 'absolute', top: 3, right: 3, color: 'inherit', fontSize: "1.5rem" }}
+                                                                sx={{
+                                                                    color: 'inherit',
+                                                                    fontSize: '1.5rem',
+                                                                    cursor: 'pointer',
+                                                                }}
                                                                 onClick={() => setFieldValue('groupPicture', '')}
                                                             />
-                                                        </FlexBetween>
+                                                        </Box>
                                                     )}
                                                 </Box>
                                             )}
                                         </Dropzone>
                                     </Box>
+
                                     {/* Search Bar */}
                                     <FlexBetween backgroundColor={neutralLight} borderRadius="9px" padding="0.1rem 0.5rem" mb="1rem">
                                         <SearchIcon sx={{ mr: 1 }} />
                                         <InputBase placeholder='Search' sx={{ width: 1, height: '40px' }} onChange={(e) => handleSearch(e.target.value)} />
                                     </FlexBetween>
                                 </Box>
+
                                 {/* show selected user in chip */}
                                 {selectedUser &&
-                                    <Box sx={{ mb: 2, mt: 3 }}>
-                                        {selectedUser?.map((u) => {
-                                            return <>
-                                                <Chip variant="outlined" onDelete={() => handleUnSelctUser(u)} label={`${u.firstName}${u.middleName}${u.lastName}`} avatar={<Avatar src={u.picturePath} />} key={u._id} sx={{ m: 0.5, cursor: "pointer" }} />
-                                            </>
-                                        })}
-                                    </Box>}
+                                    <>
+                                        {isUpdate && <Box sx={{ mb: 2, mt: 3 }}>
+                                            <Chip variant='filled' label={`${group?.groupAdmin?.firstName}${group?.groupAdmin?.middleName}${group?.groupAdmin?.lastName} (Admin)`} avatar={<Avatar src={group?.groupAdmin?.picturePath} />} sx={{ cursor: "pointer" }} />
+                                        </Box>}
+                                        {group?.groupAdmin?._id === userId ?
+                                            <Box sx={{ mb: 1, mt: 1 }}>
+                                                {selectedUser?.map((u) => {
+                                                    return (<span key={u._id}>
+                                                        <Chip variant={selectedChip === u._id ? 'filled' : 'outlined'}
+                                                            onDelete={() => handleUnSelctUser(u)}
+                                                            onClick={() => {
+                                                                handleChipClick(u._id);
+                                                            }}
+                                                            label={`${u.firstName}${u.middleName}${u.lastName}`}
+                                                            avatar={<Avatar src={u.picturePath} />}
+                                                            sx={{ m: 0.5, cursor: "pointer" }} />
+                                                    </span>)
+                                                })}
+                                            </Box>
+                                            :
+                                            <Box>
+                                                {selectedUser?.map((u) => {
+                                                    return (<span key={u._id}>
+                                                        <Chip variant='outlined' label={`${u.firstName}${u.middleName}${u.lastName}`} avatar={<Avatar src={u.picturePath} />} sx={{ m: 0.5, cursor: "pointer" }} />
+                                                    </span>)
+                                                })}
+                                            </Box>}
+                                        <Typography variant="subtitle1" color={neutralMain} sx={{ mb: 2 }}>* Only admin can update the group</Typography>
+                                    </>
+                                }
+
+
                                 {/* search result list */}
                                 {(!isLoading && searchReults.length > 0 && currSearchQuery !== "") &&
                                     searchReults.slice(0, 5).map((user) => {
-                                        return (<>
-                                            <UserChatWidget name={`${user.firstName}${user.middleName}${user.lastName}`} picturePath={user.picturePath} handleSelectUser={() => handleGroup(user)} key={user._id} />
+                                        return (<span key={user._id} >
+                                            <UserChatWidget name={`${user.firstName}${user.middleName}${user.lastName}`} picturePath={user.picturePath} handleSelectUser={() => handleGroup(user)} />
                                             <br />
-                                        </>);
+                                        </span>);
                                     })}
-                                {/* skelton */}
+
+                                {/* skeltons when searching for user */}
                                 {isLoading && <Box sx={{ my: 2 }}>
                                     <Skeleton variant="body1" sx={{ mb: 1 }} />
                                     <Skeleton variant="body1" sx={{ mb: 1 }} />
                                     <Skeleton variant="body1" sx={{ mb: 1 }} />
                                 </Box>}
                             </DialogContent>
+
+                            {/* buttons */}
                             <DialogActions sx={{ p: 3 }}>
+                                {/* cancel button */}
                                 <LoadingButton
                                     sx={{
                                         backgroundColor: '#ff3333',
-                                        color: palette.background.alt,
+                                        color: backgroundAlt,
                                         borderRadius: "3rem",
                                         "&:hover": { color: '#ff3333' },
                                         height: '10%'
@@ -331,14 +413,16 @@ const AddGroupModalWidget = (props) => {
                                     onClick={handleClose}>
                                     Cancel
                                 </LoadingButton>
+                                {/* add or update button */}
                                 <LoadingButton
                                     sx={{
-                                        backgroundColor: palette.primary.main,
-                                        color: palette.background.alt,
+                                        backgroundColor: primaryMain,
+                                        color: backgroundAlt,
                                         borderRadius: "3rem",
-                                        "&:hover": { color: palette.primary.main },
+                                        "&:hover": { color: primaryMain },
                                         height: '10%'
                                     }}
+                                    disabled={group?.groupAdmin?._id !== userId && isUpdate}
                                     type="submit"
                                 >
                                     {isUpdate ? "Update Group" : "Create Group"}

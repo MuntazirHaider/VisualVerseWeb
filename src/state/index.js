@@ -7,7 +7,9 @@ const initialState = {
   posts: [],
   chats: [],
   notifications: [],
-  selectedChat: null
+  selectedChat: null,
+  selectedVideoChat: null,
+  onlineUsers: []
 };
 
 export const authSlice = createSlice({
@@ -24,7 +26,8 @@ export const authSlice = createSlice({
     setLogout: (state) => {
       state.user = null;
       state.token = null;
-      state.socket = null;
+      state.selectedChat = null;
+      state.onlineUsers = [];
     },
     setUser: (state, action) => {
       state.user = action.payload.user;
@@ -52,9 +55,15 @@ export const authSlice = createSlice({
     setSelectedChat: (state, action) => {
       state.selectedChat = action.payload.selectedChat;
     },
+    setSelectedVideoChat: (state, action) => {
+      state.selectedVideoChat = action.payload.selectedVideoChat;
+    },
     setNotifications: (state, action) => {
       state.notifications = action.payload.notifications;
     },
+    setOnlineUsers: (state, action) => {
+      state.onlineUsers = action.payload
+    }
   },
 });
 
@@ -68,6 +77,8 @@ export const {
   setPost,
   setChats,
   setSelectedChat,
+  setSelectedVideoChat,
   setNotifications,
+  setOnlineUsers
 } = authSlice.actions;
 export default authSlice.reducer;
