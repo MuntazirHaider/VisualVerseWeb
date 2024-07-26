@@ -59,7 +59,7 @@ export const SocketProvider = ({ children }) => {
 
     const connectSocket = (token) => {
         if (!socket) {
-            const socketInstance = io(process.env.SERVER_ENDPOINT, {
+            const socketInstance = io(process.env.REACT_APP_SERVER_ENDPOINT, {
                 auth: { token },
                 transports: ['websocket'], // Forces WebSocket connection
                 reconnection: true, // Enable reconnection
