@@ -61,8 +61,14 @@ export const SocketProvider = ({ children }) => {
         if (!socket) {
             const socketInstance = io(process.env.SERVER_ENDPOINT ?? 'http://localhost:3001', {
                 auth: { token },
+                transports: ['websocket'], // Forces WebSocket connection
+                reconnection: true, // Enable reconnection
+                reconnectionAttempts: 10, // Maximum reconnection attempts
+                reconnectionDelay: 500, // Reconnection delay (500ms)
             });
-            setSocket(socketInstance);
+            socketInstance.on('connect', () => {
+                setSocket(socketInstance);
+            })
         }
     };
 
