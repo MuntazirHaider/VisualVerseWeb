@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 // @mui
 import {
   Button,
@@ -84,6 +84,16 @@ const IncomingCallModalWidget = ({ open, onClose }) => {
     socket.emit('video call: decline call', { to: call.caller._id });
     setCall({ isReceivedCall: false });
   }
+
+  useEffect(() => {
+    let timer;
+    if (open) {
+      timer = setTimeout(() => {
+        handleDecline();
+      }, 30000); 
+    }
+    return () => clearTimeout(timer);
+  }, [open]);
 
   return (
     <CustomDialog open={open} onClose={() => { }}

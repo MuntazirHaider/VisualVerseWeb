@@ -7,6 +7,7 @@ const initialState = {
   posts: [],
   chats: [],
   notifications: [],
+  friendRequests: [],
   selectedChat: null,
   selectedVideoChat: null,
   onlineUsers: []
@@ -61,6 +62,9 @@ export const authSlice = createSlice({
     setNotifications: (state, action) => {
       state.notifications = action.payload.notifications;
     },
+    setFriendRequests: (state, action) => {
+      state.friendRequests = action.payload.friendRequests;
+    },
     setOnlineUsers: (state, action) => {
       state.onlineUsers = action.payload
     }
@@ -79,6 +83,7 @@ export const {
   setSelectedChat,
   setSelectedVideoChat,
   setNotifications,
+  setFriendRequests,
   setOnlineUsers
 } = authSlice.actions;
 export default authSlice.reducer;

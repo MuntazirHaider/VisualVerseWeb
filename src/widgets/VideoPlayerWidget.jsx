@@ -171,7 +171,7 @@ const VideoPlayerWidget = () => {
         if (myVideo.current) {
             myVideo.current.srcObject = currentStream;
         }
-        socket.emit('camera-change', { stream: currentStream.id, roomId: selectedVideoChat._id });
+        socket.emit('video call: camera-change', { stream: currentStream.id, to: selectedVideoChat._id });
         setAnchorEl(null);
     };
 
@@ -214,7 +214,7 @@ const VideoPlayerWidget = () => {
             handleClose();
         });
 
-        socket?.on('camera-change', async ({ streamId }) => {
+        socket?.on('video call: camera-change', async ({ streamId }) => {
             const devices = await navigator.mediaDevices.enumerateDevices();
             const videoInputDevices = devices.filter(device => device.kind === 'videoinput');
             const newStream = await navigator.mediaDevices.getUserMedia({
@@ -232,9 +232,9 @@ const VideoPlayerWidget = () => {
         <VideoContainer container>
             {stream &&
                 <VideoPaper>
-                    <ControlBackButton onClick={handleGoBack}>
+                    {(!callAccepted && callEnded) && <ControlBackButton onClick={handleGoBack}>
                         <West />
-                    </ControlBackButton>
+                    </ControlBackButton>}
 
                     {/* my video player */}
                     {(callAccepted && !callEnded) && <SmallVideoElement playsInline muted ref={myVideo} autoPlay />}

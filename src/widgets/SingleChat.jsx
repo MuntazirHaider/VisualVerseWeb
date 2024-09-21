@@ -229,6 +229,18 @@ const SingleChat = ({ userId, chats, handleChatsUpdate }) => {
         }
     }
 
+    // function to create a new notification
+    const handleCreateNotification = async (newMessage) => {
+        const body = {
+            "chatId": newMessage.chat._id,
+            "messageId": newMessage._id
+        }
+        const response = await api.post(Apis.notifications.index, body);
+        if (response.result) {
+            return response.result;
+        }
+    }
+
     // to send a message
     const handleSubmit = async () => {
         if (socket) {
@@ -248,7 +260,11 @@ const SingleChat = ({ userId, chats, handleChatsUpdate }) => {
                     setIsEmojiVisible(false);
                     setAllMessage([...allMessage, response.data]);
                     handleChatsUpdate();
-                    socket.emit("chats: new message send", response.data);
+                    if (!selectedChat.isGroupChat && isOnline) {
+                        socket.emit("chats: new message send", response.data);
+                    } else {
+                        handleCreateNotification(response.data);
+                    }
                 }
             } catch (error) {
                 console.error(error);

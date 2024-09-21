@@ -24,8 +24,10 @@ const Apis = {
   auth: {
     login: path('auth/login'),
     register: path('auth/register'),
-    forgetPassword: path('auth/forget-password'),
+    sendOtp: path('auth/forget-password'),
     verifyOtp: path('auth/verify-otp'),
+    register_newMail: path('auth/register_newMail'),
+    register_verifyOtp: path('auth/register/verify-otp'),
     changePassword: path('auth/change-password'),
   },
   user: {
@@ -49,6 +51,13 @@ const Apis = {
   },
   feedback: {
     index: path('feedback')
+  },
+  friendRequest: {
+    index: path('users'),
+    send: path('users/sendRequest'),
+    fetch: path('users/friendRequests'),
+    reject: path('users/rejectRequest'),
+    accept: path('users/acceptRequest')
   }
 
 

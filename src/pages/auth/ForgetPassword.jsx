@@ -115,7 +115,7 @@ const ForgetPassword = ({ mode }) => {
     const handleSendOtp = async () => {
         if (validateEmail()) {
             try {
-                const response = await api.authPost(Apis.auth.forgetPassword, { email });
+                const response = await api.authPost(Apis.auth.sendOtp, { email });
                 if (response.result) {
                     localStorage.setItem('visual_email', email);
                     setEmail('');
@@ -159,6 +159,7 @@ const ForgetPassword = ({ mode }) => {
             });
             if (response.result) {
                 toast.info("Again OTP is send to your email");
+                setOtp('')
             } else {
                 toast.error(response.message);
             }
@@ -184,7 +185,7 @@ const ForgetPassword = ({ mode }) => {
                     setConfirmPassword('');
                     setPasswordError('');
                     handleCloseChangePasswordSection();
-                    navigate("/login")
+                    navigate("/auth")
                 } else {
                     toast.error("Something went wrong, Please try again");
                 }
@@ -350,7 +351,7 @@ const ForgetPassword = ({ mode }) => {
 
                 {/* Footer */}
                 <Typography
-                    onClick={() => navigate("/login")}
+                    onClick={() => navigate("/auth")}
                     sx={{
                         textDecoration: "underline",
                         color: primaryMain,

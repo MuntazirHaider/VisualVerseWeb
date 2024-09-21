@@ -19,10 +19,9 @@ import IncomingCallModalWidget from 'widgets/IncomingCallModalWidget.jsx';
 // Pages
 const Home = lazy(() => import('pages/home'));
 const Chat = lazy(() => import('pages/chat'));
-const LogIn = lazy(() => import('pages/auth/index.jsx'));
+const Auth = lazy(() => import('pages/auth/index.jsx'));
 const Profile = lazy(() => import('pages/profile'));
 const ForgetPassword = lazy(() => import('pages/auth/ForgetPassword.jsx'));
-// const IncomingCallModalWidget = lazy(() => import('widgets/IncomingCallModalWidget.jsx'));
 const HelpWidget = lazy(() => import('widgets/HelpWidget.jsx'));
 const Navbar = lazy(() => import('pages/navbar/index.jsx'));
 const VideoChat = lazy(() => import('pages/video/index.jsx'));
@@ -98,12 +97,12 @@ function App() {
           <Suspense fallback={<Loading />}>
             {isAuth && <Navbar userId={_id} picturePath={picturePath} />}
             <Routes>
-              <Route path="/" element={isAuth ? <Home /> : <Navigate to="/login" />} />
-              <Route path="/login" element={!isAuth ? <LogIn /> : <Navigate to="/" />} />
-              <Route path="/home" element={isAuth ? <Home /> : <Navigate to="/login" />} />
-              <Route path="/profile/:userId" element={isAuth ? <Profile /> : <Navigate to="/login" />} />
-              <Route path="/chats" element={isAuth ? <Chat /> : <Navigate to="/login" />} />
-              <Route path="/video-call" element={isAuth ? <VideoChat /> : <Navigate to="/login" />} />
+              <Route path="/" element={isAuth ? <Home /> : <Navigate to="/auth" />} />
+              <Route path="/auth" element={!isAuth ? <Auth mode={mode}/> : <Navigate to="/" />} />
+              <Route path="/home" element={isAuth ? <Home /> : <Navigate to="/auth" />} />
+              <Route path="/profile/:userId" element={isAuth ? <Profile /> : <Navigate to="/auth" />} />
+              <Route path="/chats" element={isAuth ? <Chat /> : <Navigate to="/auth" />} />
+              <Route path="/video-call" element={isAuth ? <VideoChat /> : <Navigate to="/auth" />} />
               <Route path="/forget-password" element={<ForgetPassword mode={mode} />} />
               <Route path="/help" element={<HelpWidget />} />
             </Routes>

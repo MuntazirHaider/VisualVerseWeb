@@ -57,7 +57,7 @@ const Profile = () => {
           <UserWidget userId={userId} picturePath={user?.picturePath} isProfile/>
           <Box m="2rem 0" />
           {/* user firnds's detail */}
-          {user?.friends?.length > 0 && < FriendListWidget userId={userId} />}
+          {user?.friends?.length > 0 && < FriendListWidget userId={userId} isProfile/>}
           <Box m="2rem 2rem" />
         </Box>
 

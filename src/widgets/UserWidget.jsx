@@ -13,7 +13,6 @@ import {
     Divider,
     useTheme,
     IconButton,
-
 } from "@mui/material";
 // components
 import UserImage from "components/UserImage";
@@ -21,10 +20,11 @@ import FlexBetween from "components/FlexBetween";
 import WidgetWrapper from "components/WidgetWrapper";
 import UpdateProfilePage from "widgets/UpdateProfileWidget";
 import PreviewImage from "components/PreviewImage";
-// react
+// state
 import { useDispatch, useSelector } from "react-redux";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useSocket } from "context/SocketContext";
 // routes
 import Apis from "routes/apis";
 import RestApiClient from "routes/RestApiClient";
@@ -41,10 +41,12 @@ const UserWidget = ({ userId, isProfile }) => {
     const token = useSelector((state) => state.token);
     const currUser = useSelector((state) => state.user);
     const posts = useSelector((state) => state.posts);
-    const userFriends = currUser.friends;
+    const onlineUsers = useSelector((state) => state.onlineUsers);
+    const userFriends = currUser.friends || [];
 
     const navigate = useNavigate();
     const { palette } = useTheme();
+    const { socket } = useSocket();
     const dispatch = useDispatch();
     const api = new RestApiClient(token);
 
@@ -87,12 +89,24 @@ const UserWidget = ({ userId, isProfile }) => {
     }
 
     // add or remove friend
-    const patchFriend = async () => {
-        const response = await api.put(`${Apis.user.index}/${currUser._id}/${userId}`);
+    const addFriend = async () => {
+        const response = await api.post(`${Apis.friendRequest.send}/${userId}`, { "requesterId": currUser._id });
         if (response.result) {
-            dispatch(setFriends({ friends: response.friends }));
+            if (onlineUsers.includes(userId)) {
+                socket.emit("friend request: send requested", response.data);
+            }
+            toast.success("Friend request sent successfully");
         } else {
-            toast.error("Unable To Add And Remove Friends!");
+            toast.error(response.message);
+        }
+    }
+
+    const removeFriend = async () => {
+        const response = await api.delete(`${Apis.friendRequest.index}/${currUser._id}/${userId}`);
+        if (response.result) {
+            dispatch(setFriends({ friends: response.data }));
+        } else {
+            toast.error(response.message);
         }
     }
 
@@ -152,16 +166,19 @@ const UserWidget = ({ userId, isProfile }) => {
                         <ManageAccountsOutlined sx={{ cursor: "pointer" }} />
                     </IconButton>
                     ) : (
-                        <IconButton
-                            onClick={() => patchFriend()}
-                            sx={{ backgroundColor: primaryLight, p: "0.6rem" }}
-                        >
+                        // show add or remove friend icon
+                        <>
                             {isFriends ? (
-                                <PersonRemoveOutlined sx={{ color: primaryDark }} />
+                                <IconButton sx={{ backgroundColor: primaryLight, p: "0.6rem" }} onClick={removeFriend}>
+                                    <PersonRemoveOutlined sx={{ color: primaryDark }} />
+                                </IconButton>
                             ) : (
-                                <PersonAddOutlined sx={{ color: primaryDark }} />
+                                <IconButton sx={{ backgroundColor: primaryLight, p: "0.6rem" }} onClick={addFriend}>
+                                    <PersonAddOutlined sx={{ color: primaryDark }} />
+                                </IconButton>
                             )}
-                        </IconButton>)
+                        </>
+                    )
                 }
             </FlexBetween>
 
