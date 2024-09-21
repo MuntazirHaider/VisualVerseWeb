@@ -65,6 +65,9 @@ export const SocketProvider = ({ children }) => {
             socketInstance.on('connect', () => {
                 setSocket(socketInstance);
             })
+            socketInstance.on('connect', () => {
+                setSocket(socketInstance);
+            })
         }
     };
 
