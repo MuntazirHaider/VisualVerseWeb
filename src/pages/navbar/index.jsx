@@ -45,7 +45,7 @@ import {
 } from '@mui/icons-material';
 // state
 import { useDispatch, useSelector } from 'react-redux';
-import { setMode, setLogout, setSelectedChat, setNotifications, setSelectedVideoChat } from "state";
+import { setMode, setLogout, setSelectedChat, setNotifications, setSelectedVideoChat, setFriendRequests, setFriends } from "state";
 import { useSocket } from 'context/SocketContext';
 // route
 import { useNavigate } from 'react-router-dom';
@@ -99,10 +99,13 @@ function Navbar({ userId, picturePath }) {
 
   const token = useSelector((state) => state.token);
   const notifications = useSelector((state) => state.notifications);
-  const { socket, disconnectSocket } = useSocket();
+  const friendRequests = useSelector((state) => state.friendRequests);
   const selectedChat = useSelector((state) => state.selectedChat);
+  const onlineUsers = useSelector((state) => state.onlineUsers);
+  const friends = useSelector((state) => state.user.friends);
 
   const theme = useTheme();
+  const { socket, disconnectSocket } = useSocket();
   const { palette } = useTheme();
   const dispatch = useDispatch();
   const navigate = useNavigate();
@@ -163,7 +166,7 @@ function Navbar({ userId, picturePath }) {
       const response = await api.delete(`${Apis.user.index}/${userId}/delete`);
       if (response.result) {
         dispatch(setLogout());
-        navigate("/login");
+        navigate("/auth");
         disconnectSocket();
         toast.success("Account Removed Successfully!");
       } else {
@@ -181,12 +184,19 @@ function Navbar({ userId, picturePath }) {
     dispatch(setSelectedVideoChat({ selectedVideoChat: null }));
   }
 
-  // const fetchAllNotifications = async () => {
-  //   const response = await api.get(Apis.notifications.index);
-  //   if (response.result) {
-  //     dispatch(setNotifications({ notifications: response.data }));
-  //   }
-  // }
+  const fetchAllNotifications = async () => {
+    const response = await api.get(Apis.notifications.index);
+    if (response.result) {
+      dispatch(setNotifications({ notifications: response.data }));
+    }
+  }
+
+  const fetchAllFriendRequest = async () => {
+    const response = await api.get(`${Apis.friendRequest.fetch}/${userId}`);
+    if (response.result) {
+      dispatch(setFriendRequests({ friendRequests: response.data }));
+    }
+  }
 
   // function to create a new notification
   const handleCreateNotification = async (newMessage) => {
@@ -226,6 +236,30 @@ function Navbar({ userId, picturePath }) {
     }
   }
 
+  // reject friend request
+  const handleRejectRequest = async (reqId) => {
+    handleCloseNotificationMenu();
+    const response = await api.delete(Apis.friendRequest.reject, { requestId: reqId });
+
+    if (response.result) {
+      fetchAllFriendRequest();
+    }
+  }
+
+  // accept friend request
+  const handleAcceptRequest = async (reqId) => {
+    handleCloseNotificationMenu();
+    const response = await api.put(Apis.friendRequest.accept, { requestId: reqId });
+
+    if (response.result) {
+      if (onlineUsers.includes(response.data.requester._id)) {
+        socket.emit('friend request: requested accepted', { to: response.data.requester._id, recipient: response.data.recipient });
+      }
+      fetchAllFriendRequest();
+      dispatch(setFriends({ friends: response.data.friends }));
+    }
+  }
+
   // arrange all notifications chat wise 
   useEffect(() => {
     const newArrangedNotifications = {};
@@ -252,15 +286,29 @@ function Navbar({ userId, picturePath }) {
         }
       });
 
+      socket.on("friend request: received requested", (newRequest) => {
+        playNotification();
+        dispatch(setFriendRequests({ friendRequests: [newRequest, ...friendRequests] }));
+      });
+
+      socket.on("friend request: request accepted", (recipient) => {
+        playNotification();
+        toast.info(`${recipient.firstName} ${recipient.middleName} ${recipient.lastName} accept your friend request`)
+        dispatch(setFriends({ friends: [recipient, ...friends] }));
+      });
+
       return () => {
         socket.off("chats: new message received")
+        socket.off("friend request: received requested")
+        socket.off("friend request: request accepted")
       }
     }
   });
 
-  // useEffect(() => {
-  //   fetchAllNotifications()
-  // }, [])
+  useEffect(() => {
+    fetchAllNotifications();
+    fetchAllFriendRequest();
+  }, [])
 
 
   return (
@@ -342,7 +390,7 @@ function Navbar({ userId, picturePath }) {
                   {/* notification icon */}
                   <Tooltip title="Notifications">
                     <IconButton onClick={handleOpenNotificationMenu}>
-                      <Badge badgeContent={notifications.length} color="error" overlap="circular">
+                      <Badge badgeContent={notifications.length + friendRequests.length} color="error" overlap="circular">
                         <Notifications sx={{ color: dark, fontSize: "25px" }} />
                       </Badge>
                     </IconButton>
@@ -422,7 +470,7 @@ function Navbar({ userId, picturePath }) {
               {/* Notification icon */}
               <Tooltip title="Notifications">
                 <IconButton onClick={handleOpenNotificationMenu}>
-                  <Badge badgeContent={notifications.length} color="error" overlap="circular">
+                  <Badge badgeContent={notifications.length + friendRequests.length} color="error" overlap="circular">
                     <Notifications sx={{ color: dark, fontSize: "25px" }} />
                   </Badge>
                 </IconButton>
@@ -533,8 +581,53 @@ function Navbar({ userId, picturePath }) {
             open={Boolean(anchorElNotification)}
             onClose={handleCloseNotificationMenu}
           >
+            {
+              friendRequests.length > 0 && (
+                friendRequests.map((request) => (
+                  <div key={request._id}>
+                    <MenuItem>
+                      <UserChatWidget name={`${request.requester.firstName} ${request.requester.middleName} ${request.requester.lastName}`} picturePath={request.requester.picturePath} lastMessage={'new friend request'} />
+                    </MenuItem>
+                    <Box sx={{ justifyContent: 'space-between', display: 'flex' }}>
+                      <MenuItem sx={{ p: 1, width: '100%' }}>
+                        <Button
+                          sx={{
+                            backgroundColor: '#ff3333',
+                            color: backgroundAlt,
+                            cursor: 'pointer',
+                            "&:hover": { color: '#ff3333' },
+                            width: '100%',
+                            textAlign: 'center'
+                          }}
+                          onClick={() => handleRejectRequest(request._id)}
+                        >
+                          Reject
+                        </Button>
+                      </MenuItem>
+                      <MenuItem sx={{ p: 1, width: '100%' }}>
+                        <Button
+                          sx={{
+                            backgroundColor: primaryMain,
+                            color: backgroundAlt,
+                            cursor: 'pointer',
+                            "&:hover": { color: primaryMain },
+                            width: '100%',
+                            textAlign: 'center'
+                          }}
+                          onClick={() => handleAcceptRequest(request._id)}
+                        >
+                          Accept
+                        </Button>
+                      </MenuItem>
+                    </Box>
+                  </div>
+                ))
+              )
+            }
+
             {notifications.length > 0 ? (
               <div>
+                <hr color={neutralLight} />
                 {Object.keys(arrangedNotifications).map(chatId => (
                   <MenuItem onClick={() => handleNotificationClick(arrangedNotifications[chatId][0].notificationChat)} key={chatId}>
                     {arrangedNotifications[chatId][0].notificationChat.isGroupChat ? (
@@ -573,9 +666,11 @@ function Navbar({ userId, picturePath }) {
                 </MenuItem>
               </div>
             ) : (
-              <MenuItem>
-                No Notifications
-              </MenuItem>
+              <Box>
+                {(notifications.length === 0 && friendRequests.length === 0) && <MenuItem>
+                  No Notifications
+                </MenuItem>}
+              </Box>
             )}
           </Menu>
 

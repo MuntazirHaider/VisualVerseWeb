@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useEffect } from 'react'
 import { advertisement } from "assets/advertisement"
 // @mui
 import {
@@ -12,12 +12,33 @@ import AdvertisementWidget from 'widgets/AdvertisementWidget';
 import FriendListWidget from 'widgets/FriendListWidget';
 import AllPostsWidget from 'widgets/AllPostsWidget';
 // redux
-import { useSelector } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
+import { setFriends } from 'state';
+// routes
+import RestApiClient from 'routes/RestApiClient';
+import Apis from 'routes/apis';
 
 const Home = () => {
 
   const isNonMobScreens = useMediaQuery("(min-width: 1000px)");
   const { _id, picturePath, friends } = useSelector((state) => state.user);
+  const token = useSelector((state) => state.token);
+
+  const api = new RestApiClient(token);
+  const dispatch = useDispatch();
+
+  // get user friends by id
+  const getFriends = async () => {
+    const response = await api.get(`${Apis.user.index}/${_id}/friends`);
+    if (response.result) {
+      dispatch(setFriends({ friends: response.friends }));
+    }
+  }
+
+  useEffect(() => {
+    getFriends();
+    // eslint-disable-next-line
+  }, []);
 
   return (
     <Box>

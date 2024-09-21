@@ -17,13 +17,14 @@ import {
     ArrowDropDown,
 } from '@mui/icons-material';
 
-const FriendListWidget = ({ userId }) => {
+const FriendListWidget = ({ userId, isProfile }) => {
 
     const token = useSelector((state) => state.token);
-    const friends = useSelector((state) => state.user.friends);
+    let { _id, friends } = useSelector((state) => state.user);
 
-    const [showMore, setShowMore] = useState(false);                     /* to expand a friend list */
-    const visibleFriends = showMore ? friends : friends.slice(0, 3);     /* limit the number of visible friends */
+    const [showMore, setShowMore] = useState(false);
+    const [userFriends, setUserFriends] = useState([]);                   /* to expand a friend list */
+    let visibleFriends;
 
     const dispatch = useDispatch();
     const { palette } = useTheme();
@@ -41,15 +42,20 @@ const FriendListWidget = ({ userId }) => {
     const getFriends = async () => {
         const response = await api.get(`${Apis.user.index}/${userId}/friends`);
         if (response.result) {
-            dispatch(setFriends({ friends: response.friends }));
+            setUserFriends(response.friends);
         }
     }
 
     useEffect(() => {
-        getFriends();
+        if (isProfile)
+            getFriends();
         // eslint-disable-next-line
     }, []);
 
+    if (isProfile) {
+        friends = userFriends
+    }
+    visibleFriends = showMore ? friends : friends.slice(0, 3);     /* limit the number of visible friends */
 
     return (
         <WidgetWrapper >
@@ -68,6 +74,7 @@ const FriendListWidget = ({ userId }) => {
                             name={`${friend.firstName} ${friend.middleName} ${friend.lastName}`}
                             subtitle={friend.occupation}
                             userPicturePath={friend.picturePath}
+                            isMyProfile={_id === userId ? true : false}
                         />
                     ))
                 )}

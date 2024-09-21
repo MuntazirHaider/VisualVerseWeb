@@ -24,7 +24,7 @@ import { setSelectedVideoChat } from 'state';
 const VideoChat = () => {
   const [drawerState, setDrawerState] = useState(false); /* for toggling search drawer */
 
-  const { friends } = useSelector((state) => state.user);
+  const friends = useSelector((state) => state.user.friends);
   const selectedVideoChat = useSelector((state) => state.selectedVideoChat);
   const onlineUsers = useSelector((state) => state.onlineUsers);
 

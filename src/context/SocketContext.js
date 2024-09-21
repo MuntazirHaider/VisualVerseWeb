@@ -59,10 +59,12 @@ export const SocketProvider = ({ children }) => {
 
     const connectSocket = (token) => {
         if (!socket) {
-            const socketInstance = io(process.env.SERVER_ENDPOINT ?? 'http://localhost:3001', {
-                auth: { token },
+            const socketInstance = io(process.env.REACT_APP_SERVER_ENDPOINT, {
+                auth: { token }
             });
-            setSocket(socketInstance);
+            socketInstance.on('connect', () => {
+                setSocket(socketInstance);
+            })
         }
     };
 
@@ -77,24 +79,39 @@ export const SocketProvider = ({ children }) => {
     const callUser = (userToCall, caller) => {
         const newPeer = new Peer({ initiator: true, trickle: false, stream });
 
+        // Set up 'signal' event to send the initial offer
         newPeer.on('signal', (data) => {
             socket.emit('video call: call user', { userToCall, signalData: data, caller });
         });
 
-
-        socket.on('video call: call accepted', (signal) => {
-            newPeer.on('stream', (currentStream) => {
+        // Prepare to handle incoming stream once the call is accepted
+        newPeer.on('stream', (currentStream) => {
+            if (userVideo.current) {
                 userVideo.current.srcObject = currentStream;
-            });
-            setCallAccepted(true);
+            }
+        });
+
+        // Listen for the 'call accepted' event and signal the received data
+        socket.on('video call: call accepted', (signal) => {
             newPeer.signal(signal);
+            setCallAccepted(true);
         });
 
         setPeer(newPeer);
     };
 
+
     const answerCall = () => {
-        const newPeer = new Peer({ initiator: false, trickle: false, stream });
+        let newPeer;
+        if (!stream) {
+            const checkAndSetMyVideo = setInterval(() => {
+                if (stream) {
+                    clearInterval(checkAndSetMyVideo);
+                }
+            }, 1000);
+        }
+
+        newPeer = new Peer({ initiator: false, trickle: false, stream });
 
         newPeer.on('signal', (data) => {
             socket.emit('video call: answer call', { signal: data, to: call.caller._id });
@@ -106,10 +123,8 @@ export const SocketProvider = ({ children }) => {
                 newPeer.on('stream', (currentStream) => {
                     userVideo.current.srcObject = currentStream;
                 });
-
                 newPeer.signal(call.signal);
                 setPeer(newPeer);
-
                 clearInterval(checkUserVideo);
             }
         }, 100);
@@ -120,7 +135,6 @@ export const SocketProvider = ({ children }) => {
     const endCall = (id) => {
         setCallEnded(true);
         socket.emit("video call: end call", { to: id });
-        if (peer) peer.destroy();
         window.location.reload();
     };
 

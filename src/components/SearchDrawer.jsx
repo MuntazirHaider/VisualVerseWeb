@@ -62,8 +62,8 @@ const SearchDrawer = ({ onOpen, onClose, drawerState, isChatSearch, chats }) => 
 
     // to select a chat from seach result
     const handleWatchProfile = (userId) => {
-        navigate(`/profile/${userId}`);
         onClose();
+        navigate(`/profile/${userId}`);
     }
 
     // conditional search for user 
